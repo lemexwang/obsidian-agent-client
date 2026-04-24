@@ -10,6 +10,7 @@ import type {
 } from "../domain/models/chat-session";
 import type { SessionConfigOption } from "../domain/models/session-update";
 import { flattenConfigSelectOptions } from "../shared/config-option-utils";
+import { extractErrorMessage } from "../shared/acp-error-utils";
 import type { IAgentClient } from "../domain/ports/agent-client.port";
 import type { ISettingsAccess } from "../domain/ports/settings-access.port";
 import type { AgentClientPluginSettings } from "../plugin";
@@ -632,7 +633,7 @@ export function useAgentSession(
 				setSession((prev) => ({ ...prev, state: "error" }));
 				setErrorInfo({
 					title: "Session Creation Failed",
-					message: `Failed to create new session: ${error instanceof Error ? error.message : String(error)}`,
+					message: `Failed to create new session: ${extractErrorMessage(error)}`,
 					suggestion:
 						"Please check the agent configuration and try again.",
 				});
@@ -772,7 +773,7 @@ export function useAgentSession(
 				setSession((prev) => ({ ...prev, state: "error" }));
 				setErrorInfo({
 					title: "Session Loading Failed",
-					message: `Failed to load session: ${error instanceof Error ? error.message : String(error)}`,
+					message: `Failed to load session: ${extractErrorMessage(error)}`,
 					suggestion: "Please try again or create a new session.",
 				});
 			}
