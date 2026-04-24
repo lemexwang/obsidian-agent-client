@@ -251,6 +251,7 @@ export const MessageRenderer = React.memo(function MessageRenderer({
 						aria-label="Copy message"
 						ref={copyButtonRef}
 					/>
+					<CopyRichButton contents={message.content} />
 				</div>
 			)}
 		</div>
