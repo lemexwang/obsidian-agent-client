@@ -66,7 +66,7 @@ function markdownToHtml(markdown: string): string {
 		})
 		.join("\n");
 
-	return html;
+	return `<html><body>${html}</body></html>`;
 }
 
 /**
@@ -81,25 +81,46 @@ function CopyRichButton({ contents }: { contents: MessageContent[] }) {
 
 		const html = markdownToHtml(text);
 
-		const blobPlain = new Blob([text], { type: "text/plain" });
-		const blobHtml = new Blob([html], { type: "text/html" });
+		// Use a hidden contenteditable element + execCommand('copy').
+		// This is the reliable path in Electron: it writes proper native
+		// CF_HTML / NSPasteboard HTML that Teams, Outlook, WeChat, etc. read.
+		// navigator.clipboard.write(ClipboardItem) in Electron does not
+		// reliably populate the native HTML clipboard format for other apps.
+		const el = document.createElement("div");
+		el.setAttribute("contenteditable", "true");
+		el.style.cssText =
+			"position:fixed;left:-9999px;top:-9999px;opacity:0;pointer-events:none;white-space:pre-wrap;";
+		el.innerHTML = html;
+		document.body.appendChild(el);
 
-		const data = [
-			new ClipboardItem({
-				"text/plain": blobPlain,
-				"text/html": blobHtml,
-			}),
-		];
+		const selection = window.getSelection();
+		const range = document.createRange();
+		range.selectNodeContents(el);
+		selection?.removeAllRanges();
+		selection?.addRange(range);
 
-		void navigator.clipboard
-			.write(data)
-			.then(() => {
-				setCopied(true);
-				setTimeout(() => setCopied(false), 2000);
-			})
-			.catch((err) => {
-				console.error("Failed to copy rich text:", err);
-			});
+		const success = document.execCommand("copy");
+
+		selection?.removeAllRanges();
+		document.body.removeChild(el);
+
+		if (success) {
+			setCopied(true);
+			setTimeout(() => setCopied(false), 2000);
+		} else {
+			// Fallback: ClipboardItem API (works in standard browser contexts)
+			const blobPlain = new Blob([text], { type: "text/plain" });
+			const blobHtml = new Blob([html], { type: "text/html" });
+			void navigator.clipboard
+				.write([new ClipboardItem({ "text/plain": blobPlain, "text/html": blobHtml })])
+				.then(() => {
+					setCopied(true);
+					setTimeout(() => setCopied(false), 2000);
+				})
+				.catch((err) => {
+					console.error("Failed to copy rich text:", err);
+				});
+		}
 	}, [contents]);
 
 	const iconRef = React.useCallback(
