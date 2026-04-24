@@ -114,7 +114,10 @@ function SidebarHeader({
 	return (
 		<div className="nav-header agent-client-chat-view-header">
 			<div className="nav-buttons-container">
-				<span className="agent-client-chat-view-header-title">
+				<span
+					className="agent-client-chat-view-header-title"
+					data-agent-label={agentLabel}
+				>
 					{agentLabel}
 				</span>
 				{isUpdateAvailable && (

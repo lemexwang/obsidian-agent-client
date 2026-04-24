@@ -8,7 +8,7 @@ import type {
 	BaseAgentSettings,
 	ClaudeAgentSettings,
 	GeminiAgentSettings,
-	CodexAgentSettings,
+
 } from "../types/agent";
 import type { ChatSession, SessionState } from "../types/session";
 import { toAgentConfig } from "./settings-normalizer";
@@ -50,10 +50,7 @@ export function getAvailableAgentsFromSettings(
 			id: settings.claude.id,
 			displayName: settings.claude.displayName || settings.claude.id,
 		},
-		{
-			id: settings.codex.id,
-			displayName: settings.codex.displayName || settings.codex.id,
-		},
+
 		{
 			id: settings.gemini.id,
 			displayName: settings.gemini.displayName || settings.gemini.id,
@@ -96,9 +93,7 @@ export function findAgentSettings(
 	if (agentId === settings.claude.id) {
 		return settings.claude;
 	}
-	if (agentId === settings.codex.id) {
-		return settings.codex;
-	}
+
 	if (agentId === settings.gemini.id) {
 		return settings.gemini;
 	}
@@ -120,7 +115,7 @@ export function buildAgentConfigWithApiKey(
 ) {
 	const baseConfig = toAgentConfig(agentSettings, workingDirectory);
 
-	// Add API keys to environment for Claude, Codex, and Gemini
+	// Add API keys to environment for Claude and Gemini
 	if (agentId === settings.claude.id) {
 		const claudeSettings = agentSettings as ClaudeAgentSettings;
 		return {
@@ -131,16 +126,7 @@ export function buildAgentConfigWithApiKey(
 			},
 		};
 	}
-	if (agentId === settings.codex.id) {
-		const codexSettings = agentSettings as CodexAgentSettings;
-		return {
-			...baseConfig,
-			env: {
-				...baseConfig.env,
-				OPENAI_API_KEY: codexSettings.apiKey,
-			},
-		};
-	}
+
 	if (agentId === settings.gemini.id) {
 		const geminiSettings = agentSettings as GeminiAgentSettings;
 		return {

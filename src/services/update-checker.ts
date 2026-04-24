@@ -43,7 +43,7 @@ export interface AgentUpdateNotification {
 const KNOWN_AGENT_PACKAGES: Readonly<Record<string, string>> = {
 	"@agentclientprotocol/claude-agent-acp":
 		"@agentclientprotocol/claude-agent-acp",
-	"codex-acp": "@zed-industries/codex-acp",
+
 };
 
 /**

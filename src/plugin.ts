@@ -37,7 +37,7 @@ import {
 	AgentEnvVar,
 	GeminiAgentSettings,
 	ClaudeAgentSettings,
-	CodexAgentSettings,
+
 	CustomAgentSettings,
 } from "./types/agent";
 import type { SavedSessionInfo } from "./types/session";
@@ -69,7 +69,7 @@ export type ChatViewLocation =
 export interface AgentClientPluginSettings {
 	gemini: GeminiAgentSettings;
 	claude: ClaudeAgentSettings;
-	codex: CodexAgentSettings;
+
 	customAgents: CustomAgentSettings[];
 	/** Default agent ID for new views (renamed from activeAgentId for multi-session) */
 	defaultAgentId: string;
@@ -129,14 +129,7 @@ const DEFAULT_SETTINGS: AgentClientPluginSettings = {
 		args: [],
 		env: [],
 	},
-	codex: {
-		id: "codex-acp",
-		displayName: "Codex",
-		apiKey: "",
-		command: "codex-acp",
-		args: [],
-		env: [],
-	},
+
 	gemini: {
 		id: "gemini-cli",
 		displayName: "Gemini CLI",
@@ -623,11 +616,7 @@ export default class AgentClientPlugin extends Plugin {
 				displayName:
 					this.settings.claude.displayName || this.settings.claude.id,
 			},
-			{
-				id: this.settings.codex.id,
-				displayName:
-					this.settings.codex.displayName || this.settings.codex.id,
-			},
+
 			{
 				id: this.settings.gemini.id,
 				displayName:
@@ -833,7 +822,7 @@ export default class AgentClientPlugin extends Plugin {
 
 		// Extract agent sub-objects
 		const rc = obj(raw.claude) ?? {};
-		const rk = obj(raw.codex) ?? {};
+
 		const rg = obj(raw.gemini) ?? {};
 		const re = obj(raw.exportSettings) ?? {};
 		const rd = obj(raw.displaySettings) ?? {};
@@ -850,7 +839,6 @@ export default class AgentClientPlugin extends Plugin {
 		// Migration: defaultAgentId ← activeAgentId (old name)
 		const availableAgentIds = [
 			D.claude.id,
-			D.codex.id,
 			D.gemini.id,
 			...customAgents.map((a) => a.id),
 		];
@@ -874,14 +862,7 @@ export default class AgentClientPlugin extends Plugin {
 				args: sanitizeArgs(rc.args),
 				env: normalizeEnvVars(rc.env),
 			},
-			codex: {
-				id: D.codex.id,
-				displayName: str(rk.displayName, D.codex.displayName),
-				apiKey: str(rk.apiKey, D.codex.apiKey),
-				command: str(rk.command, "") || D.codex.command,
-				args: sanitizeArgs(rk.args),
-				env: normalizeEnvVars(rk.env),
-			},
+
 			gemini: {
 				id: D.gemini.id,
 				displayName: str(rg.displayName, D.gemini.displayName),
@@ -1115,7 +1096,7 @@ export default class AgentClientPlugin extends Plugin {
 	private collectAvailableAgentIds(): string[] {
 		const ids = new Set<string>();
 		ids.add(this.settings.claude.id);
-		ids.add(this.settings.codex.id);
+
 		ids.add(this.settings.gemini.id);
 		for (const agent of this.settings.customAgents) {
 			if (agent.id && agent.id.length > 0) {

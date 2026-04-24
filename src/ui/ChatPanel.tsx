@@ -252,11 +252,7 @@ export function ChatPanel({
 				plugin.settings.claude.displayName || plugin.settings.claude.id
 			);
 		}
-		if (activeId === plugin.settings.codex.id) {
-			return (
-				plugin.settings.codex.displayName || plugin.settings.codex.id
-			);
-		}
+
 		if (activeId === plugin.settings.gemini.id) {
 			return (
 				plugin.settings.gemini.displayName || plugin.settings.gemini.id
