@@ -74,6 +74,7 @@ function ChatComponent({
 		isSessionReady,
 		messages,
 		isSending,
+		currentStatus,
 		isUpdateAvailable,
 		permission,
 		mentions,
@@ -540,9 +541,11 @@ function ChatComponent({
 		<div
 			className="agent-client-chat-view-container"
 			style={chatFontSizeStyle}
+			data-agent-id={session.agentId ?? ""}
 		>
 			<ChatHeader
 				agentLabel={activeAgentLabel}
+				currentAgentId={session.agentId ?? ""}
 				isUpdateAvailable={isUpdateAvailable}
 				hasHistoryCapability={sessionHistory.canShowSessionHistory}
 				onNewChat={() => void handleNewChatWithPersist()}
@@ -554,6 +557,7 @@ function ChatComponent({
 			<ChatMessages
 				messages={messages}
 				isSending={isSending}
+				currentStatus={currentStatus}
 				isSessionReady={isSessionReady}
 				isRestoringSession={sessionHistory.loading}
 				agentLabel={activeAgentLabel}

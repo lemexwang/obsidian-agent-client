@@ -2,6 +2,7 @@ import * as React from "react";
 import { useEffect, useRef } from "react";
 import { DropdownComponent, setIcon } from "obsidian";
 import { HeaderButton } from "./HeaderButton";
+import { AgentLogo } from "./AgentLogo";
 
 // Agent info for display
 interface AgentInfo {
@@ -132,6 +133,7 @@ export function InlineHeader({
 			className={`agent-client-inline-header agent-client-inline-header-${variant}`}
 		>
 			<div className="agent-client-inline-header-main">
+				<AgentLogo agentId={currentAgentId} />
 				{availableAgents.length > 1 ? (
 					<div className="agent-client-agent-selector">
 						<div ref={agentDropdownRef} />

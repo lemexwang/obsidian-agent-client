@@ -214,6 +214,7 @@ function FloatingChatComponent({
 		isSessionReady,
 		messages,
 		isSending,
+		currentStatus,
 		isUpdateAvailable,
 		permission,
 		mentions,
@@ -771,6 +772,7 @@ function FloatingChatComponent({
 					<ChatMessages
 						messages={messages}
 						isSending={isSending}
+						currentStatus={currentStatus}
 						isSessionReady={isSessionReady}
 						isRestoringSession={sessionHistory.loading}
 						agentLabel={activeAgentLabel}

@@ -74,6 +74,7 @@ export interface UseChatControllerReturn {
 	isSessionReady: boolean;
 	messages: ReturnType<typeof useChat>["messages"];
 	isSending: boolean;
+	currentStatus: string | null;
 	isUpdateAvailable: boolean;
 	isLoadingSessionHistory: boolean;
 
@@ -197,12 +198,13 @@ export function useChatController(
 		},
 		{
 			windowsWslMode: settings.windowsWslMode,
+			enableAutoRAG: settings.enableAutoRAG,
 			maxNoteLength: settings.displaySettings.maxNoteLength,
 			maxSelectionLength: settings.displaySettings.maxSelectionLength,
 		},
 	);
 
-	const { messages, isSending } = chat;
+	const { messages, isSending, currentStatus } = chat;
 
 	const permission = usePermission(acpAdapter, messages);
 
@@ -946,6 +948,7 @@ export function useChatController(
 		isSessionReady,
 		messages,
 		isSending,
+		currentStatus,
 		isUpdateAvailable,
 		isLoadingSessionHistory,
 

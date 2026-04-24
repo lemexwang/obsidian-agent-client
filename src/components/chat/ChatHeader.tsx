@@ -1,5 +1,6 @@
 import * as React from "react";
 import { HeaderButton } from "./HeaderButton";
+import { AgentLogo } from "./AgentLogo";
 
 /**
  * Props for ChatHeader component
@@ -7,6 +8,8 @@ import { HeaderButton } from "./HeaderButton";
 export interface ChatHeaderProps {
 	/** Display name of the active agent */
 	agentLabel: string;
+	/** Current agent ID (used to show the brand logo) */
+	currentAgentId: string;
 	/** Whether a plugin update is available */
 	isUpdateAvailable: boolean;
 	/** Whether session history is supported (show History button) */
@@ -31,6 +34,7 @@ export interface ChatHeaderProps {
  */
 export function ChatHeader({
 	agentLabel,
+	currentAgentId,
 	isUpdateAvailable,
 	hasHistoryCapability = false,
 	onNewChat,
@@ -42,6 +46,7 @@ export function ChatHeader({
 		<div className="agent-client-chat-view-header">
 			<div className="agent-client-chat-view-header-main">
 				<h3 className="agent-client-chat-view-header-title">
+					<AgentLogo agentId={currentAgentId} />
 					{agentLabel}
 				</h3>
 			</div>

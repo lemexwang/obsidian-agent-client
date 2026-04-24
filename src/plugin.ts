@@ -69,6 +69,7 @@ export interface AgentClientPluginSettings {
 	defaultAgentId: string;
 	autoAllowPermissions: boolean;
 	autoMentionActiveNote: boolean;
+	enableAutoRAG: boolean;
 	debugMode: boolean;
 	nodePath: string;
 	exportSettings: {
@@ -141,6 +142,7 @@ const DEFAULT_SETTINGS: AgentClientPluginSettings = {
 	defaultAgentId: "claude-code-acp",
 	autoAllowPermissions: false,
 	autoMentionActiveNote: true,
+	enableAutoRAG: false,
 	debugMode: false,
 	nodePath: "",
 	exportSettings: {
@@ -628,22 +630,26 @@ export default class AgentClientPlugin extends Plugin {
 				id: this.settings.claude.id,
 				displayName:
 					this.settings.claude.displayName || this.settings.claude.id,
+				command: this.settings.claude.command,
 			},
 			{
 				id: this.settings.codex.id,
 				displayName:
 					this.settings.codex.displayName || this.settings.codex.id,
+				command: this.settings.codex.command,
 			},
 			{
 				id: this.settings.gemini.id,
 				displayName:
 					this.settings.gemini.displayName || this.settings.gemini.id,
+				command: this.settings.gemini.command,
 			},
 			...this.settings.customAgents.map((agent) => ({
 				id: agent.id,
 				displayName: agent.displayName || agent.id,
+				command: agent.command,
 			})),
-		];
+		].filter((agent) => agent.command && agent.command.trim().length > 0);
 	}
 
 	/**
@@ -995,6 +1001,10 @@ export default class AgentClientPlugin extends Plugin {
 				typeof rawSettings.autoMentionActiveNote === "boolean"
 					? rawSettings.autoMentionActiveNote
 					: DEFAULT_SETTINGS.autoMentionActiveNote,
+			enableAutoRAG:
+				typeof rawSettings.enableAutoRAG === "boolean"
+					? rawSettings.enableAutoRAG
+					: DEFAULT_SETTINGS.enableAutoRAG,
 			debugMode:
 				typeof rawSettings.debugMode === "boolean"
 					? rawSettings.debugMode

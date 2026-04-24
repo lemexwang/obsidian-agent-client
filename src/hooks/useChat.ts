@@ -15,6 +15,7 @@ import type {
 } from "../domain/models/prompt-content";
 import type { IMentionService } from "../shared/mention-utils";
 import { preparePrompt, sendPreparedPrompt } from "../shared/message-service";
+import { useRAG } from "./useRAG";
 import { Platform } from "obsidian";
 
 // ============================================================================
@@ -48,6 +49,8 @@ export interface UseChatReturn {
 	messages: ChatMessage[];
 	/** Whether a message is currently being sent */
 	isSending: boolean;
+	/** Current status text of the agent operation */
+	currentStatus: string | null;
 	/** Last user message (can be restored after cancel) */
 	lastUserMessage: string | null;
 	/** Error information from message operations */
@@ -147,6 +150,7 @@ export interface SessionContext {
  */
 export interface SettingsContext {
 	windowsWslMode: boolean;
+	enableAutoRAG: boolean;
 	maxNoteLength: number;
 	maxSelectionLength: number;
 }
@@ -234,8 +238,11 @@ export function useChat(
 	// Message state
 	const [messages, setMessages] = useState<ChatMessage[]>([]);
 	const [isSending, setIsSending] = useState(false);
+	const [currentStatus, setCurrentStatus] = useState<string | null>(null);
 	const [lastUserMessage, setLastUserMessage] = useState<string | null>(null);
 	const [errorInfo, setErrorInfo] = useState<ErrorInfo | null>(null);
+
+	const { retrieveContext } = useRAG(vaultAccess);
 
 	/**
 	 * Add a new message to the chat.
@@ -446,6 +453,7 @@ export function useChat(
 		(update: SessionUpdate): void => {
 			switch (update.type) {
 				case "agent_message_chunk":
+					setCurrentStatus("Responding...");
 					updateLastMessage({
 						type: "text",
 						text: update.text,
@@ -453,6 +461,7 @@ export function useChat(
 					break;
 
 				case "agent_thought_chunk":
+					setCurrentStatus("Thinking...");
 					updateLastMessage({
 						type: "agent_thought",
 						text: update.text,
@@ -468,6 +477,15 @@ export function useChat(
 
 				case "tool_call":
 				case "tool_call_update":
+					if (update.status === "in_progress") {
+						setCurrentStatus(
+							update.title
+								? `Running ${update.title.toLowerCase()}...`
+								: "Running tool...",
+						);
+					} else if (update.status === "completed") {
+						setCurrentStatus(null);
+					}
 					upsertToolCall(update.toolCallId, {
 						type: "tool_call",
 						toolCallId: update.toolCallId,
@@ -497,7 +515,7 @@ export function useChat(
 					break;
 			}
 		},
-		[updateLastMessage, upsertToolCall],
+		[updateLastMessage, updateUserMessage, upsertToolCall],
 	);
 
 	/**
@@ -507,6 +525,7 @@ export function useChat(
 		setMessages([]);
 		setLastUserMessage(null);
 		setIsSending(false);
+		setCurrentStatus(null);
 		setErrorInfo(null);
 	}, []);
 
@@ -535,6 +554,7 @@ export function useChat(
 
 			setMessages(chatMessages);
 			setIsSending(false);
+			setCurrentStatus(null);
 			setErrorInfo(null);
 		},
 		[],
@@ -549,6 +569,7 @@ export function useChat(
 		(localMessages: ChatMessage[]): void => {
 			setMessages(localMessages);
 			setIsSending(false);
+			setCurrentStatus(null);
 			setErrorInfo(null);
 		},
 		[],
@@ -582,10 +603,24 @@ export function useChat(
 				return;
 			}
 
+			// Phase 0: Retrieval-Augmented Generation (RAG)
+			let agentMessage = content;
+			if (settingsContext.enableAutoRAG) {
+				try {
+					const ragContext = await retrieveContext(content);
+					if (ragContext) {
+						agentMessage = `${ragContext}\n\n---\n\nUser Query: ${content}`;
+					}
+				} catch (e) {
+					// Log error but proceed with original message
+					console.error("[AgentClient] RAG retrieval failed:", e);
+				}
+			}
+
 			// Phase 1: Prepare prompt using message-service
 			const prepared = await preparePrompt(
 				{
-					message: content,
+					message: agentMessage, // Use potentially augmented message for agent
 					images: options.images,
 					resourceLinks: options.resourceLinks,
 					activeNote: options.activeNote,
@@ -602,20 +637,20 @@ export function useChat(
 				mentionService,
 			);
 
-			// Phase 2: Build user message for UI
+			// Phase 2: Build user message for UI (using original content)
 			const userMessageContent: MessageContent[] = [];
 
 			// Text part (with or without auto-mention context)
 			if (prepared.autoMentionContext) {
 				userMessageContent.push({
 					type: "text_with_context",
-					text: content,
+					text: content, // Original content for UI
 					autoMentionContext: prepared.autoMentionContext,
 				});
 			} else {
 				userMessageContent.push({
 					type: "text",
-					text: content,
+					text: content, // Original content for UI
 				});
 			}
 
@@ -653,6 +688,7 @@ export function useChat(
 
 			// Phase 3: Set sending state and store original message
 			setIsSending(true);
+			setCurrentStatus("Sending message...");
 			setLastUserMessage(content);
 
 			// Phase 4: Send prepared prompt to agent using message-service
@@ -670,10 +706,12 @@ export function useChat(
 				if (result.success) {
 					// Success - clear stored message
 					setIsSending(false);
+					setCurrentStatus(null);
 					setLastUserMessage(null);
 				} else {
 					// Error from message-service
 					setIsSending(false);
+					setCurrentStatus(null);
 					setErrorInfo(
 						result.error
 							? {
@@ -690,9 +728,12 @@ export function useChat(
 			} catch (error) {
 				// Unexpected error
 				setIsSending(false);
+				setCurrentStatus(null);
 				setErrorInfo({
 					title: "Send Message Failed",
-					message: `Failed to send message: ${error instanceof Error ? error.message : String(error)}`,
+					message: `Failed to send message: ${
+						error instanceof Error ? error.message : String(error)
+					}`,
 				});
 			}
 		},
@@ -703,6 +744,10 @@ export function useChat(
 			sessionContext.sessionId,
 			sessionContext.authMethods,
 			sessionContext.promptCapabilities,
+			settingsContext.maxNoteLength,
+			settingsContext.maxSelectionLength,
+			settingsContext.enableAutoRAG,
+			retrieveContext,
 			shouldConvertToWsl,
 			addMessage,
 		],
@@ -711,6 +756,7 @@ export function useChat(
 	return {
 		messages,
 		isSending,
+		currentStatus,
 		lastUserMessage,
 		errorInfo,
 		sendMessage,

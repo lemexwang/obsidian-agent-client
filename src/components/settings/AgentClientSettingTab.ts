@@ -125,6 +125,20 @@ export class AgentClientSettingTab extends PluginSettingTab {
 			);
 
 		new Setting(containerEl)
+			.setName("Enable Automatic RAG")
+			.setDesc(
+				"Automatically search the entire vault for relevant context to augment prompts. This enables Retrieval-Augmented Generation.",
+			)
+			.addToggle((toggle) =>
+				toggle
+					.setValue(this.plugin.settings.enableAutoRAG)
+					.onChange(async (value) => {
+						this.plugin.settings.enableAutoRAG = value;
+						await this.plugin.saveSettings();
+					}),
+			);
+
+		new Setting(containerEl)
 			.setName("Max note length")
 			.setDesc(
 				"Maximum characters per mentioned note. Notes longer than this will be truncated.",

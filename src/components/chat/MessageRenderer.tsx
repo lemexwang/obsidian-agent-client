@@ -15,6 +15,109 @@ function extractTextContent(contents: MessageContent[]): string {
 		.join("\n");
 }
 
+
+/**
+ * Simple markdown to HTML converter for rich text clipboard.
+ * Optimized for Outlook/Word/Teams.
+ */
+function markdownToHtml(markdown: string): string {
+	let html = markdown;
+
+	// Code blocks: ```lang\ncode\n```
+	html = html.replace(/```(?:\w+)?\n([\s\S]+?)\n```/g, (_, code) => {
+		const escapedCode = code
+			.replace(/&/g, "&amp;")
+			.replace(/</g, "&lt;")
+			.replace(/>/g, "&gt;");
+		return `<pre style="background-color: #f6f8fa; padding: 16px; border-radius: 6px; font-family: ui-monospace,SFMono-Regular,SF Mono,Menlo,Consolas,Liberation Mono,monospace; font-size: 85%; line-height: 1.45; overflow: auto;"><code>${escapedCode}</code></pre>`;
+	});
+
+	// Inline code: `code`
+	html = html.replace(/`([^`]+)`/g, (_, code) => {
+		return `<code style="background-color: rgba(175,184,193,0.2); padding: 0.2em 0.4em; border-radius: 6px; font-family: ui-monospace,SFMono-Regular,SF Mono,Menlo,Consolas,Liberation Mono,monospace; font-size: 85%;">${code}</code>`;
+	});
+
+	// Bold: **text**
+	html = html.replace(/\*\*([^\*]+)\*\*/g, "<b>$1</b>");
+
+	// Italic: *text*
+	html = html.replace(/\*([^\*]+)\*/g, "<i>$1</i>");
+
+	// Headers
+	html = html.replace(/^### (.*$)/gm, "<h3>$1</h3>");
+	html = html.replace(/^## (.*$)/gm, "<h2>$1</h2>");
+	html = html.replace(/^# (.*$)/gm, "<h1>$1</h1>");
+
+	// Lists
+	html = html.replace(/^[*-] (.*$)/gm, "<li>$1</li>");
+	html = html.replace(/((?:<li>.*<\/li>\n?)+)/g, "<ul>$1</ul>");
+
+	// Links
+	html = html.replace(/\[([^\]]+)\]\(([^\)]+)\)/g, '<a href="$2">$1</a>');
+
+	// Paragraphs
+	html = html
+		.split("\n\n")
+		.map((p) => {
+			if (p.trim().startsWith("<h") || p.trim().startsWith("<ul") || p.trim().startsWith("<pre")) {
+				return p;
+			}
+			return `<p>${p.replace(/\n/g, "<br>")}</p>`;
+		})
+		.join("\n");
+
+	return html;
+}
+
+/**
+ * Copy button for rich text (HTML).
+ */
+function CopyRichButton({ contents }: { contents: MessageContent[] }) {
+	const [copied, setCopied] = React.useState(false);
+
+	const handleCopyRichText = React.useCallback(() => {
+		const text = extractTextContent(contents);
+		if (!text) return;
+
+		const html = markdownToHtml(text);
+
+		const blobPlain = new Blob([text], { type: "text/plain" });
+		const blobHtml = new Blob([html], { type: "text/html" });
+
+		const data = [
+			new ClipboardItem({
+				"text/plain": blobPlain,
+				"text/html": blobHtml,
+			}),
+		];
+
+		void navigator.clipboard
+			.write(data)
+			.then(() => {
+				setCopied(true);
+				setTimeout(() => setCopied(false), 2000);
+			})
+			.catch((err) => {
+				console.error("Failed to copy rich text:", err);
+			});
+	}, [contents]);
+
+	const iconRef = React.useCallback(
+		(el: HTMLButtonElement | null) => {
+			if (el) setIcon(el, copied ? "check" : "file-text");
+		},
+		[copied],
+	);
+
+	return (
+		<button
+			className="agent-client-message-action-button"
+			onClick={handleCopyRichText}
+			aria-label="Copy as rich text"
+			ref={iconRef}
+		/>
+	);
+}
 interface MessageRendererProps {
 	message: ChatMessage;
 	plugin: AgentClientPlugin;

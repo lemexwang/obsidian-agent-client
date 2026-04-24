@@ -16,6 +16,8 @@ export interface ChatMessagesProps {
 	messages: ChatMessage[];
 	/** Whether a message is currently being sent */
 	isSending: boolean;
+	/** Current status text of the agent operation */
+	currentStatus?: string | null;
 	/** Whether the session is ready for user input */
 	isSessionReady: boolean;
 	/** Whether a session is being restored (load/resume/fork) */
@@ -49,6 +51,7 @@ export interface ChatMessagesProps {
 export function ChatMessages({
 	messages,
 	isSending,
+	currentStatus,
 	isSessionReady,
 	isRestoringSession,
 	agentLabel,
@@ -153,9 +156,9 @@ export function ChatMessages({
 							<div className="agent-client-loading-dot"></div>
 							<div className="agent-client-loading-dot"></div>
 						</div>
-						{hasActivePermission && (
+						{(currentStatus || hasActivePermission) && (
 							<span className="agent-client-loading-status">
-								Waiting for permission...
+								{currentStatus ?? "Waiting for permission..."}
 							</span>
 						)}
 					</div>
