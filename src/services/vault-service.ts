@@ -372,7 +372,6 @@ export class VaultService implements IVaultAccess {
 		const filePath = file.path;
 
 		if (
-			this.lastSelectionKey &&
 			!this.lastSelectionKey.startsWith(`${filePath}:`)
 		) {
 			// Clear previous file selection when switching files

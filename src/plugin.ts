@@ -627,11 +627,6 @@ export default class AgentClientPlugin extends Plugin {
 					this.settings.claude.displayName || this.settings.claude.id,
 			},
 			{
-				id: this.settings.codex.id,
-				displayName:
-					this.settings.codex.displayName || this.settings.codex.id,
-			},
-			{
 				id: this.settings.gemini.id,
 				displayName:
 					this.settings.gemini.displayName || this.settings.gemini.id,
