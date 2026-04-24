@@ -45,7 +45,7 @@ export function ChatHeader({
 	return (
 		<div className="agent-client-chat-view-header">
 			<div className="agent-client-chat-view-header-main">
-				<h3 className="agent-client-chat-view-header-title">
+				<h3 className="agent-client-chat-view-header-title" data-agent-label={agentLabel}>
 					<AgentLogo agentId={currentAgentId} />
 					{agentLabel}
 				</h3>
