@@ -37,6 +37,7 @@ import {
 	AgentEnvVar,
 	GeminiAgentSettings,
 	ClaudeAgentSettings,
+	CodexAgentSettings,
 
 	CustomAgentSettings,
 } from "./types/agent";
@@ -67,6 +68,7 @@ export type ChatViewLocation =
 	| "editor-split";
 
 export interface AgentClientPluginSettings {
+	codex: CodexAgentSettings;
 	gemini: GeminiAgentSettings;
 	claude: ClaudeAgentSettings;
 
@@ -121,6 +123,14 @@ export interface AgentClientPluginSettings {
 }
 
 const DEFAULT_SETTINGS: AgentClientPluginSettings = {
+	codex: {
+		id: "codex",
+		displayName: "Codex",
+		apiKey: "",
+		command: "codex-acp",
+		args: [],
+		env: [],
+	},
 	claude: {
 		id: "claude-code-acp",
 		displayName: "Claude Code",
@@ -616,7 +626,11 @@ export default class AgentClientPlugin extends Plugin {
 				displayName:
 					this.settings.claude.displayName || this.settings.claude.id,
 			},
-
+			{
+				id: this.settings.codex.id,
+				displayName:
+					this.settings.codex.displayName || this.settings.codex.id,
+			},
 			{
 				id: this.settings.gemini.id,
 				displayName:
@@ -822,6 +836,7 @@ export default class AgentClientPlugin extends Plugin {
 
 		// Extract agent sub-objects
 		const rc = obj(raw.claude) ?? {};
+		const rcdx = obj(raw.codex) ?? {};
 
 		const rg = obj(raw.gemini) ?? {};
 		const re = obj(raw.exportSettings) ?? {};
@@ -839,6 +854,7 @@ export default class AgentClientPlugin extends Plugin {
 		// Migration: defaultAgentId ← activeAgentId (old name)
 		const availableAgentIds = [
 			D.claude.id,
+			D.codex.id,
 			D.gemini.id,
 			...customAgents.map((a) => a.id),
 		];
@@ -849,7 +865,15 @@ export default class AgentClientPlugin extends Plugin {
 				? rawDefaultId
 				: availableAgentIds[0] || D.claude.id;
 
-		this.settings = {
+				this.settings = {
+			codex: {
+				id: D.codex.id,
+				displayName: str(rcdx.displayName, D.codex.displayName),
+				apiKey: str(rcdx.apiKey, D.codex.apiKey),
+				command: str(rcdx.command, "") || D.codex.command,
+				args: sanitizeArgs(rcdx.args).length > 0 ? sanitizeArgs(rcdx.args) : D.codex.args,
+				env: normalizeEnvVars(rcdx.env),
+			},
 			claude: {
 				id: D.claude.id, // Fixed — never from raw
 				displayName: str(rc.displayName, D.claude.displayName),

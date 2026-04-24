@@ -312,7 +312,7 @@ function extractTextContent(contents: MessageContent[]): string {
  * Optimized for Outlook/Word/Teams.
  */
 function markdownToHtml(markdown: string): string {
-	let html = markdown;
+	let html = markdown.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
 
 	// Code blocks: ```lang\ncode\n```
 	html = html.replace(/```(?:\w+)?\n([\s\S]+?)\n```/g, (_, code) => {
@@ -325,25 +325,25 @@ function markdownToHtml(markdown: string): string {
 
 	// Inline code: `code`
 	html = html.replace(/`([^`]+)`/g, (_, code) => {
-		return `<code style="background-color: rgba(175,184,193,0.2); padding: 0.2em 0.4em; border-radius: 6px; font-family: ui-monospace,SFMono-Regular,SF Mono,Menlo,Consolas,Liberation Mono,monospace; font-size: 85%;">$1</code>`;
+		return `<code style="background-color: rgba(175,184,193,0.2); padding: 0.2em 0.4em; border-radius: 6px; font-family: ui-monospace,SFMono-Regular,SF Mono,Menlo,Consolas,Liberation Mono,monospace; font-size: 85%;">${code}</code>`;
 	});
 
 	// Bold: **text**
-	html = html.replace(/\*\*([^\*]+)\*\*/g, "<b>$1</b>");
+	html = html.replace(/\*\*(.*?)\*\*/g, "<b>$1</b>");
 
 	// Italic: *text*
-	html = html.replace(/\*([^\*]+)\*/g, "<i>$1</i>");
+	html = html.replace(/\*(.*?)\*/g, "<i>$1</i>");
 
 	// Headers (must match longer patterns first)
-	html = html.replace(/^###### (.*$)/gm, "<h6>$1</h6>");
-	html = html.replace(/^##### (.*$)/gm, "<h5>$1</h5>");
-	html = html.replace(/^#### (.*$)/gm, "<h4>$1</h4>");
-	html = html.replace(/^### (.*$)/gm, "<h3>$1</h3>");
-	html = html.replace(/^## (.*$)/gm, "<h2>$1</h2>");
-	html = html.replace(/^# (.*$)/gm, "<h1>$1</h1>");
+	html = html.replace(/^######\s+(.*)/gm, "<h6>$1</h6>");
+	html = html.replace(/^#####\s+(.*)/gm, "<h5>$1</h5>");
+	html = html.replace(/^####\s+(.*)/gm, "<h4>$1</h4>");
+	html = html.replace(/^###\s+(.*)/gm, "<h3>$1</h3>");
+	html = html.replace(/^##\s+(.*)/gm, "<h2>$1</h2>");
+	html = html.replace(/^#\s+(.*)/gm, "<h1>$1</h1>");
 
 	// Lists (simplified)
-	html = html.replace(/^[*-] (.*$)/gm, "<li>$1</li>");
+	html = html.replace(/^[*-]\s+(.*)/gm, "<li>$1</li>");
 	// Wrap lists in <ul> (very basic logic)
 	html = html.replace(/((?:<li>.*<\/li>\n?)+)/g, "<ul>$1</ul>");
 
@@ -365,7 +365,7 @@ function markdownToHtml(markdown: string): string {
 		})
 		.join("\n");
 
-	return html;
+	return `<html><body>${html}</body></html>`;
 }
 
 /**
@@ -416,26 +416,46 @@ function CopyRichButton({ contents }: { contents: MessageContent[] }) {
 
 		const html = markdownToHtml(text);
 
-		// Create Blob with both text/plain and text/html
-		const blobPlain = new Blob([text], { type: "text/plain" });
-		const blobHtml = new Blob([html], { type: "text/html" });
+		// Use a hidden contenteditable element + execCommand('copy').
+		// This is the reliable path in Electron: it writes proper native
+		// CF_HTML / NSPasteboard HTML that Teams, Outlook, WeChat, etc. read.
+		// navigator.clipboard.write(ClipboardItem) in Electron does not
+		// reliably populate the native HTML clipboard format for other apps.
+		const el = document.createElement("div");
+		el.setAttribute("contenteditable", "true");
+		el.style.cssText =
+			"position:fixed;left:-9999px;top:-9999px;opacity:0;pointer-events:none;white-space:pre-wrap;";
+		el.innerHTML = html;
+		document.body.appendChild(el);
 
-		const data = [
-			new ClipboardItem({
-				"text/plain": blobPlain,
-				"text/html": blobHtml,
-			}),
-		];
+		const selection = window.getSelection();
+		const range = document.createRange();
+		range.selectNodeContents(el);
+		selection?.removeAllRanges();
+		selection?.addRange(range);
 
-		void navigator.clipboard
-			.write(data)
-			.then(() => {
-				setCopied(true);
-				setTimeout(() => setCopied(false), 2000);
-			})
-			.catch((err) => {
-				console.error("Failed to copy rich text:", err);
-			});
+		const success = document.execCommand("copy");
+
+		selection?.removeAllRanges();
+		document.body.removeChild(el);
+
+		if (success) {
+			setCopied(true);
+			setTimeout(() => setCopied(false), 2000);
+		} else {
+			// Fallback: ClipboardItem API (works in standard browser contexts)
+			const blobPlain = new Blob([text], { type: "text/plain" });
+			const blobHtml = new Blob([html], { type: "text/html" });
+			void navigator.clipboard
+				.write([new ClipboardItem({ "text/plain": blobPlain, "text/html": blobHtml })])
+				.then(() => {
+					setCopied(true);
+					setTimeout(() => setCopied(false), 2000);
+				})
+				.catch((err) => {
+					console.error("Failed to copy rich text:", err);
+				});
+		}
 	}, [contents]);
 
 	const iconRef = useCallback(
@@ -455,10 +475,6 @@ function CopyRichButton({ contents }: { contents: MessageContent[] }) {
 	);
 }
 
-/**
- * Group consecutive image/resource_link contents together for horizontal display.
- * Non-attachment contents are wrapped individually.
- */
 function groupContent(
 	contents: MessageContent[],
 ): Array<
