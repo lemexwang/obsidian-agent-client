@@ -633,12 +633,6 @@ export default class AgentClientPlugin extends Plugin {
 				command: this.settings.claude.command,
 			},
 			{
-				id: this.settings.codex.id,
-				displayName:
-					this.settings.codex.displayName || this.settings.codex.id,
-				command: this.settings.codex.command,
-			},
-			{
 				id: this.settings.gemini.id,
 				displayName:
 					this.settings.gemini.displayName || this.settings.gemini.id,
@@ -1329,7 +1323,6 @@ export default class AgentClientPlugin extends Plugin {
 	private collectAvailableAgentIds(): string[] {
 		const ids = new Set<string>();
 		ids.add(this.settings.claude.id);
-		ids.add(this.settings.codex.id);
 		ids.add(this.settings.gemini.id);
 		for (const agent of this.settings.customAgents) {
 			if (agent.id && agent.id.length > 0) {
