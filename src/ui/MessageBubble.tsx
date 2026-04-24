@@ -334,7 +334,10 @@ function markdownToHtml(markdown: string): string {
 	// Italic: *text*
 	html = html.replace(/\*([^\*]+)\*/g, "<i>$1</i>");
 
-	// Headers
+	// Headers (must match longer patterns first)
+	html = html.replace(/^###### (.*$)/gm, "<h6>$1</h6>");
+	html = html.replace(/^##### (.*$)/gm, "<h5>$1</h5>");
+	html = html.replace(/^#### (.*$)/gm, "<h4>$1</h4>");
 	html = html.replace(/^### (.*$)/gm, "<h3>$1</h3>");
 	html = html.replace(/^## (.*$)/gm, "<h2>$1</h2>");
 	html = html.replace(/^# (.*$)/gm, "<h1>$1</h1>");
