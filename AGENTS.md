@@ -1,5 +1,15 @@
 # Agent Client Plugin - LLM Developer Guide
 
+## GitHub Fork（用户仓库）
+
+用户的 Fork 地址：**https://github.com/lemexwang/obsidian-agent-client**
+
+当用户要求"推送到 GitHub"时，直接推送到此地址（remote 名为 `fork`）：
+```
+git push fork master
+```
+原作者仓库（origin）无写入权限，不要尝试推送到 `origin`。
+
 ## Overview
 Obsidian plugin for AI agent interaction (Claude Code, Codex, Gemini CLI, custom agents) via ACP.
 
