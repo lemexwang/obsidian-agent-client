@@ -482,8 +482,9 @@ async def handle_prompt(req_id, session_id: str, prompt: list) -> None:
     if ENABLE_WEB_SEARCH:
         tools.extend(WEB_SEARCH_TOOLS)
 
-    final_content = ""
-    cancelled     = False
+    final_content  = ""
+    final_reasoning = ""
+    cancelled      = False
     client        = AsyncOpenAI(api_key=API_KEY, base_url=BASE_URL)
 
     try:
@@ -505,6 +506,7 @@ async def handle_prompt(req_id, session_id: str, prompt: list) -> None:
             stream = await client.chat.completions.create(**create_kwargs)
 
             round_content    = ""
+            round_reasoning  = ""
             tool_calls_buf: dict[int, dict] = {}
 
             async for chunk in stream:
@@ -514,6 +516,9 @@ async def handle_prompt(req_id, session_id: str, prompt: list) -> None:
                 if not chunk.choices:
                     continue
                 delta = chunk.choices[0].delta
+
+                if getattr(delta, "reasoning_content", None):
+                    round_reasoning += delta.reasoning_content
 
                 if delta.content:
                     round_content += delta.content
@@ -538,7 +543,8 @@ async def handle_prompt(req_id, session_id: str, prompt: list) -> None:
 
             # No tool calls → final response
             if not tool_calls_buf:
-                final_content = round_content
+                final_content   = round_content
+                final_reasoning = round_reasoning
                 break
 
             # Append assistant turn with tool_calls
@@ -580,7 +586,10 @@ async def handle_prompt(req_id, session_id: str, prompt: list) -> None:
         cancel_events.pop(session_id, None)
 
     if not cancelled and final_content:
-        messages.append({"role": "assistant", "content": final_content})
+        assistant_msg: dict = {"role": "assistant", "content": final_content}
+        if final_reasoning:
+            assistant_msg["reasoning_content"] = final_reasoning
+        messages.append(assistant_msg)
 
     send_response(req_id, {"stopReason": "cancelled" if cancelled else "end_turn"})
 
