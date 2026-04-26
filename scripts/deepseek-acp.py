@@ -1,3 +1,17 @@
+import asyncio
+import json
+import os
+import sys
+import uuid
+import urllib.request
+import subprocess
+import re
+from pathlib import Path
+try:
+    from openai import AsyncOpenAI
+except ImportError:
+    pass
+
 #!/usr/bin/env python3
 """
 DeepSeek ACP Agent v1.3
@@ -24,8 +38,6 @@ Obsidian Agent Client configuration (Custom Agent):
   Args:    /Users/alice/bin/deepseek-acp.py  (or the path in your plugin's scripts/)
   Env:     DEEPSEEK_API_KEY = sk-xxxx
 """
-
-import asyncio
 import json
 import os
 import sys
@@ -385,7 +397,6 @@ def do_search_vault(cwd: str, query: str, directory: str = "") -> str:
 
 
 def do_run_shell_command(cwd: str, command: str) -> str:
-    import subprocess
     try:
         result = subprocess.run(command, shell=True, cwd=cwd, text=True, capture_output=True, timeout=60)
         out = result.stdout
@@ -400,10 +411,6 @@ def do_run_shell_command(cwd: str, command: str) -> str:
 # ── Web search ─────────────────────────────────────────────────────────────────
 
 async def do_web_search(query: str) -> str:
-    import json
-    import urllib.request
-    import os
-    from pathlib import Path
     
     tavily_key = os.environ.get("TAVILY_API_KEY")
     if not tavily_key:
@@ -418,7 +425,6 @@ async def do_web_search(query: str) -> str:
         tavily_key = "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"
 
     try:
-        import asyncio
         loop = asyncio.get_event_loop()
         def _search():
             req = urllib.request.Request(
@@ -507,6 +513,13 @@ def extract_text(prompt: list) -> str:
             text = res.get("text", "")
             if text:
                 parts.append(f"[File: {uri}]\n{text}")
+        elif btype == "resource_link":
+            uri = block.get("uri", "")
+            name = block.get("name", uri)
+            parts.append(f"[Attached File: {name}] (Path: {uri})\nNote: The user attached a file. Use the 'read_vault_file' tool with this path to read its content if you need it to answer the request.")
+        elif btype == "image":
+            mime = block.get("mimeType", "unknown")
+            parts.append(f"[Attached Image ({mime})]\nNote: The user attached an image. Since this model API currently does not support vision, please acknowledge the attachment and explain you can't 'see' the image directly but can help with associated context or files.")
     return "\n".join(parts)
 
 
@@ -519,7 +532,6 @@ async def handle_prompt(req_id, session_id: str, prompt: list) -> None:
         return
 
     try:
-        from openai import AsyncOpenAI
     except ImportError:
         send_chunk(session_id, "Error: `openai` not installed. Run: pip3 install openai")
         send_response(req_id, {"stopReason": "end_turn"})
@@ -609,9 +621,6 @@ async def handle_prompt(req_id, session_id: str, prompt: list) -> None:
                 break
 
             if not tool_calls_buf and "<tool_call" in round_content:
-                import re
-                import uuid
-                import json
                 xml_calls = re.findall(r'<tool_call\s+name="([^"]+)">\s*(.*?)\s*</tool_call>', round_content, re.DOTALL)
                 for i, (t_name, t_args_str) in enumerate(xml_calls):
                     args = {}
@@ -730,7 +739,7 @@ async def main() -> None:
         if method == "initialize":
             send_response(req_id, {
                 "protocolVersion": PROTOCOL_VERSION,
-                "agentCapabilities": {"loadSession": False},
+                "agentCapabilities": {"loadSession": False, "promptCapabilities": {"image": True}},
                 "agentInfo": {
                     "name":    "deepseek-acp",
                     "title":   f"DeepSeek ({DEFAULT_MODEL})",
