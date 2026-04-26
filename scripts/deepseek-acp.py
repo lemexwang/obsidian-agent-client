@@ -40,11 +40,10 @@ DEFAULT_MODEL     = os.environ.get("DEEPSEEK_MODEL", "deepseek-v4-flash")
 BASE_URL          = os.environ.get("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
 SYSTEM_PROMPT     = os.environ.get(
     "DEEPSEEK_SYSTEM_PROMPT",
-    "You are a helpful assistant with access to the Obsidian vault and the internet.\n"
-    "Vault tools: list_vault_files, read_vault_file, write_vault_file, search_vault.\n"
-    "Internet tool: web_search (use for current events, news, or up-to-date facts).\n"
-    "Always use vault tools when the user refers to their notes or asks you to modify files.",
-)
+    "You are a helpful assistant with full access to the user's computer and the internet.\n"
+    "Tools: list_vault_files, read_vault_file, write_vault_file, search_vault, run_shell_command, web_search.\n"
+    "You can use 'run_shell_command' to execute arbitrary shell commands for programming, compiling, or system management.\n"
+    "You can use file tools with absolute paths to read/write any file on the system.",)
 ENABLE_WEB_SEARCH = os.environ.get("DEEPSEEK_WEB_SEARCH", "true").lower() != "false"
 MAX_TOOL_ROUNDS   = 10   # max consecutive tool-call rounds per prompt
 
@@ -127,6 +126,23 @@ def model_supports_tools(value: str) -> bool:
 # ── Tool definitions ───────────────────────────────────────────────────────────
 
 VAULT_TOOLS = [
+    {
+        "type": "function",
+        "function": {
+            "name":        "run_shell_command",
+            "description": "Execute a shell command on the user's system and return the output. Useful for running scripts, compiling, or managing files globally.",
+            "parameters": {
+                "type":       "object",
+                "properties": {
+                    "command": {
+                        "type":        "string",
+                        "description": "The exact bash command to execute.",
+                    },
+                },
+                "required": ["command"],
+            },
+        },
+    },
     {
         "type": "function",
         "function": {
@@ -286,14 +302,10 @@ _SKIP = {".obsidian", ".git", "node_modules", "__pycache__", ".trash", ".DS_Stor
 
 
 def _safe_path(cwd: str, rel: str) -> Path | None:
-    """Resolve rel inside the vault; returns None if it escapes the vault root."""
+    """Resolve rel anywhere on the system."""
     vault = Path(cwd).resolve()
     p = (vault / rel).resolve() if not Path(rel).is_absolute() else Path(rel).resolve()
-    try:
-        p.relative_to(vault)
-        return p
-    except ValueError:
-        return None
+    return p
 
 
 def do_list_vault_files(cwd: str, directory: str = "", extension: str = "") -> str:
@@ -370,28 +382,63 @@ def do_search_vault(cwd: str, query: str, directory: str = "") -> str:
     return "\n".join(hits) if hits else f"No matches found for '{query}'."
 
 
+
+def do_run_shell_command(cwd: str, command: str) -> str:
+    import subprocess
+    try:
+        result = subprocess.run(command, shell=True, cwd=cwd, text=True, capture_output=True, timeout=60)
+        out = result.stdout
+        if result.stderr:
+            out += "\n--- STDERR ---\n" + result.stderr
+        if not out.strip():
+            out = "(Command finished with no output)"
+        return out
+    except Exception as exc:
+        return f"Error executing command: {exc}"
+
 # ── Web search ─────────────────────────────────────────────────────────────────
 
 async def do_web_search(query: str) -> str:
+    import json
+    import urllib.request
+    import os
+    from pathlib import Path
+    
+    tavily_key = os.environ.get("TAVILY_API_KEY")
+    if not tavily_key:
+        env_path = Path("/Users/alice/Library/Mobile Documents/iCloud~md~obsidian/Documents/Lemex_Vault/.claude/.tavily_env")
+        if env_path.exists():
+            for line in env_path.read_text().splitlines():
+                if line.startswith("TAVILY_API_KEY="):
+                    tavily_key = line.split("=", 1)[1].strip()
+                    break
+
+    if not tavily_key:
+        tavily_key = "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"
+
     try:
-        from duckduckgo_search import DDGS
-    except ImportError:
-        return "Error: `duckduckgo_search` not installed. Run: pip3 install duckduckgo_search"
-    try:
+        import asyncio
         loop = asyncio.get_event_loop()
         def _search():
-            with DDGS() as ddgs:
-                return list(ddgs.text(query, max_results=5))
-        results = await loop.run_in_executor(None, _search)
+            req = urllib.request.Request(
+                "https://api.tavily.com/search",
+                data=json.dumps({"api_key": tavily_key, "query": query, "search_depth": "basic", "max_results": 5}).encode("utf-8"),
+                headers={"Content-Type": "application/json"}
+            )
+            with urllib.request.urlopen(req) as response:
+                return json.loads(response.read().decode("utf-8"))
+        
+        data = await loop.run_in_executor(None, _search)
+        results = data.get("results", [])
         if not results:
             return "No results found."
+        
         lines = []
         for i, r in enumerate(results, 1):
-            lines.append(
-                f"{i}. {r.get('title', '')}\n"
-                f"   {r.get('href', '')}\n"
-                f"   {r.get('body', '')}"
-            )
+            title = r.get("title", "")
+            url = r.get("url", "")
+            snippet = r.get("content", "")
+            lines.append(f"{i}. {title}\n   {url}\n   {snippet}")
         return "\n\n".join(lines)
     except Exception as exc:
         return f"Search error: {exc}"
@@ -401,6 +448,12 @@ async def do_web_search(query: str) -> str:
 
 async def execute_tool(name: str, args: dict, session_id: str) -> str:
     cwd = session_cwds.get(session_id, str(Path.home()))
+
+
+    if name == "run_shell_command":
+        cmd = args.get("command", "")
+        send_chunk(session_id, f"\n\n💻 **Executing:** {cmd}\n\n")
+        return do_run_shell_command(cwd, cmd)
 
     if name == "web_search":
         q = args.get("query", "")
@@ -603,7 +656,11 @@ async def handle_prompt(req_id, session_id: str, prompt: list) -> None:
 
     if not cancelled and (final_content or final_reasoning):
         assistant_msg: dict = {"role": "assistant", "content": final_content or ""}
-        if final_reasoning:
+        # Thinking-mode turns MUST always include reasoning_content (even empty string),
+        # otherwise DeepSeek rejects the next multi-turn request with a 400 error.
+        if not model_supports_tools(model_value):
+            assistant_msg["reasoning_content"] = final_reasoning
+        elif final_reasoning:
             assistant_msg["reasoning_content"] = final_reasoning
         messages.append(assistant_msg)
 
