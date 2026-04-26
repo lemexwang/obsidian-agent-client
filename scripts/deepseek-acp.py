@@ -43,7 +43,8 @@ SYSTEM_PROMPT     = os.environ.get(
     "You are a helpful assistant with full access to the user's computer and the internet.\n"
     "Tools: list_vault_files, read_vault_file, write_vault_file, search_vault, run_shell_command, web_search.\n"
     "You can use 'run_shell_command' to execute arbitrary shell commands for programming, compiling, or system management.\n"
-    "You can use file tools with absolute paths to read/write any file on the system.",)
+    "You can use file tools with absolute paths to read/write any file on the system.\n"\
+    "If native tool calling is disabled, you MUST use tools by outputting XML: <tool_calls><tool_call name=\"tool_name\">{\"arg_name\": \"value\"}</tool_call></tool_calls>",)
 ENABLE_WEB_SEARCH = os.environ.get("DEEPSEEK_WEB_SEARCH", "true").lower() != "false"
 MAX_TOOL_ROUNDS   = 10   # max consecutive tool-call rounds per prompt
 
@@ -606,6 +607,42 @@ async def handle_prompt(req_id, session_id: str, prompt: list) -> None:
 
             if cancelled:
                 break
+
+            if not tool_calls_buf and "<tool_call" in round_content:
+                import re
+                import uuid
+                import json
+                xml_calls = re.findall(r'<tool_call\s+name="([^"]+)">\s*(.*?)\s*</tool_call>', round_content, re.DOTALL)
+                for i, (t_name, t_args_str) in enumerate(xml_calls):
+                    args = {}
+                    t_args_str = t_args_str.strip()
+                    if t_args_str.startswith("{") and t_args_str.endswith("}"):
+                        try:
+                            args = json.loads(t_args_str)
+                        except:
+                            pass
+                    if not args:
+                        if t_name == "run_shell_command":
+                            args = {"command": t_args_str}
+                        elif t_name == "web_search":
+                            args = {"query": t_args_str}
+                        elif t_name == "read_vault_file":
+                            args = {"path": t_args_str}
+                        elif t_name == "search_vault":
+                            args = {"query": t_args_str}
+                        elif t_name == "write_vault_file":
+                            args = {"path": "xml_tool_error.txt", "content": t_args_str}
+                        else:
+                            args = {"query": t_args_str}
+                    tool_calls_buf[i] = {
+                        "id": f"call_xml_{uuid.uuid4().hex[:8]}",
+                        "name": t_name,
+                        "arguments": json.dumps(args)
+                    }
+                if xml_calls:
+                    round_content = re.sub(r'<tool_calls>.*?</tool_calls>', '', round_content, flags=re.DOTALL)
+                    round_content = re.sub(r'<tool_call.*?</tool_call>', '', round_content, flags=re.DOTALL)
+                    round_content = round_content.strip()
 
             # No tool calls → final response
             if not tool_calls_buf:
