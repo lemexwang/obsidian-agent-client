@@ -532,6 +532,7 @@ async def handle_prompt(req_id, session_id: str, prompt: list) -> None:
         return
 
     try:
+        import openai
     except ImportError:
         send_chunk(session_id, "Error: `openai` not installed. Run: pip3 install openai")
         send_response(req_id, {"stopReason": "end_turn"})
