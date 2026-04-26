@@ -1,0 +1,483 @@
+/* ===================================================
+   Agent Client - 精确匹配 Claudian 视觉效果
+   颜色来源：fix-kabadoni-mobile.css .claudian-* 规则
+   =================================================== */
+
+/* ① 消除外框：让 Obsidian 的 leaf 容器也变成米色，彻底去除黑色边框 */
+.workspace-leaf-content[data-type="agent-client-chat-view"],
+.workspace-leaf-content[data-type="agent-client-chat-view"] .view-content {
+  background-color: #ebe0d8 !important;
+  border: none !important;
+  padding: 0 !important;
+}
+
+/* ② 确保 view-content 填满整个 leaf，不留缝隙 */
+.workspace-leaf-content[data-type="agent-client-chat-view"] .view-content {
+  display: flex !important;
+  flex-direction: column !important;
+  height: 100% !important;
+}
+
+/* 主容器背景 */
+.agent-client-chat-view-container,
+.agent-client-chat-view-messages,
+.agent-client-chat-view-messages-wrapper {
+  background-color: #ebe0d8 !important;
+  color: #1f1f1f !important;
+}
+
+/* 标题栏 */
+.agent-client-chat-view-header {
+  background-color: #ddd4cc !important;
+  border-bottom: 1px solid #c8bdb5 !important;
+}
+
+.agent-client-chat-view-header *,
+.agent-client-chat-view-header-title {
+  color: #1f1f1f !important;
+}
+
+/* 标题字体大小匹配 Claudian */
+.agent-client-chat-view-header-title {
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 5px !important;
+  margin: 0 !important;
+}
+
+/* Agent Logo：通过 main.js patch 在 span.agent-client-chat-view-header-title 上注入 data-agent-label */
+/* 策略：用属性选择器 + ::before 注入自定义 Logo（同时兼容旧版 Pd 组件的 class 名） */
+
+/* ── 新版（data-agent-label patch）─────────────────────── */
+
+/* Claude Code Logo（官方 Claude 星形图标，色值 #D97757） */
+.agent-client-chat-view-header-title[data-agent-label="Claude Code"]::before,
+.agent-client-agent-logo-claude::before {
+  content: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='14' height='14'%3E%3Cpath d='m4.7144 15.9555 4.7174-2.6471.079-.2307-.079-.1275h-.2307l-.7893-.0486-2.6956-.0729-2.3375-.0971-2.2646-.1214-.5707-.1215-.5343-.7042.0546-.3522.4797-.3218.686.0608 1.5179.1032 2.2767.1578 1.6514.0972 2.4468.255h.3886l.0546-.1579-.1336-.0971-.1032-.0972L6.973 9.8356l-2.55-1.6879-1.3356-.9714-.7225-.4918-.3643-.4614-.1578-1.0078.6557-.7225.8803.0607.2246.0607.8925.686 1.9064 1.4754 2.4893 1.8336.3643.3035.1457-.1032.0182-.0728-.164-.2733-1.3539-2.4467-1.445-2.4893-.6435-1.032-.17-.6194c-.0607-.255-.1032-.4674-.1032-.7285L6.287.1335 6.6997 0l.9957.1336.419.3642.6192 1.4147 1.0018 2.2282 1.5543 3.0296.4553.8985.2429.8318.091.255h.1579v-.1457l.1275-1.706.2368-2.0947.2307-2.6957.0789-.7589.3764-.9107.7468-.4918.5828.2793.4797.686-.0668.4433-.2853 1.8517-.5586 2.9021-.3643 1.9429h.2125l.2429-.2429.9835-1.3053 1.6514-2.0643.7286-.8196.85-.9046.5464-.4311h1.0321l.759 1.1293-.34 1.1657-1.0625 1.3478-.8804 1.1414-1.2628 1.7-.7893 1.36.0729.1093.1882-.0183 2.8535-.607 1.5421-.2794 1.8396-.3157.8318.3886.091.3946-.3278.8075-1.967.4857-2.3072.4614-3.4364.8136-.0425.0304.0486.0607 1.5482.1457.6618.0364h1.621l3.0175.2247.7892.522.4736.6376-.079.4857-1.2142.6193-1.6393-.3886-3.825-.9107-1.3113-.3279h-.1822v.1093l1.0929 1.0686 2.0035 1.8092 2.5075 2.3314.1275.5768-.3218.4554-.34-.0486-2.2039-1.6575-.85-.7468-1.9246-1.621h-.1275v.17l.4432.6496 2.3436 3.5214.1214 1.0807-.17.3521-.6071.2125-.6679-.1214-1.3721-1.9246L14.38 17.959l-1.1414-1.9428-.1397.079-.674 7.2552-.3156.3703-.7286.2793-.6071-.4614-.3218-.7468.3218-1.4753.3886-1.9246.3157-1.53.2853-1.9004.17-.6314-.0121-.0425-.1397.0182-1.4328 1.9672-2.1796 2.9446-1.7243 1.8456-.4128.164-.7164-.3704.0667-.6618.4008-.5889 2.386-3.0357 1.4389-1.882.929-1.0868-.0062-.1579h-.0546l-6.3385 4.1164-1.1293.1457-.4857-.4554.0608-.7467.2307-.2429 1.9064-1.3114Z' fill='%23D97757'/%3E%3C/svg%3E");
+  display: inline-block;
+  line-height: 0;
+  vertical-align: middle;
+  margin-right: 4px;
+}
+
+/* Gemini Logo（4角星渐变，蓝→紫） */
+.agent-client-chat-view-header-title[data-agent-label="Gemini CLI"]::before,
+.agent-client-agent-logo-gemini::before {
+  content: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='14' height='14'%3E%3Cdefs%3E%3ClinearGradient id='gm' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%234285f4'/%3E%3Cstop offset='1' stop-color='%238b5cf6'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M12 1C12 7.5 7.5 12 1 12C7.5 12 12 16.5 12 23C12 16.5 16.5 12 23 12C16.5 12 12 7.5 12 1Z' fill='url(%23gm)'/%3E%3C/svg%3E");
+  display: inline-block;
+  line-height: 0;
+  vertical-align: middle;
+  margin-right: 4px;
+}
+
+/* DeepSeek Logo（蓝色鲸鱼图标） */
+.agent-client-chat-view-header-title[data-agent-label="DeepSeek"]::before {
+  content: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='14' height='14'%3E%3Cdefs%3E%3ClinearGradient id='ds' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%234D6BFE'/%3E%3Cstop offset='1' stop-color='%233B82F6'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm0 1.5c.276 0 .5.224.5.5v3.5c0 1.105-.895 2-2 2H8v1.5c0 1.933 1.567 3.5 3.5 3.5s3.5-1.567 3.5-3.5V9.5h-1c-1.105 0-2-.895-2-2V4c0-.276.224-.5.5-.5zM12 4v3.5c0 .276.224.5.5.5H14v1.5c0 2.761-2.239 5-5 5H7.5v-2H10c2.209 0 4-1.791 4-4V6.5h-.5c-.828 0-1.5.672-1.5 1.5V4z' fill='url(%23ds)' fill-rule='evenodd'/%3E%3C/svg%3E");
+  display: inline-block;
+  line-height: 0;
+  vertical-align: middle;
+  margin-right: 4px;
+}
+
+/* 旧版 Pd 组件兼容：隐藏内建 SVG */
+.agent-client-agent-logo-claude svg,
+.agent-client-agent-logo-gemini svg {
+  display: none !important;
+}
+
+/* 输入区域 */
+.agent-client-chat-input-container {
+  background-color: #ebe0d8 !important;
+}
+
+.agent-client-chat-input-box {
+  background-color: #f5f0ea !important;
+  border: 1px solid #d4cac0 !important;
+  border-radius: 8px !important;
+}
+
+.agent-client-chat-input-textarea {
+  color: #1f1f1f !important;
+  background-color: transparent !important;
+  caret-color: #1f1f1f !important;
+}
+
+.agent-client-chat-input-textarea::placeholder {
+  color: #9e9087 !important;
+}
+
+/* 核心：重写容器内所有 CSS 变量 */
+.agent-client-chat-view-container {
+  --background-primary: #ebe0d8 !important;
+  --background-secondary: #ddd4cc !important;
+  --background-modifier-border: #d4cac0 !important;
+  --text-normal: #1f1f1f !important;
+  --text-muted: #555555 !important;
+  --text-faint: #777777 !important;
+  --text-on-accent: #ffffff !important;
+  --ac-chat-font-size: var(--font-ui-medium) !important;
+}
+
+/* 第一步：强制容器内所有文字深色 */
+.agent-client-chat-view-container * {
+  color: #1f1f1f !important;
+}
+
+/* 第二步：用户消息气泡例外（特异性更高，覆盖第一步） */
+.agent-client-message-renderer.agent-client-message-user,
+.agent-client-message-renderer.agent-client-message-user * {
+  color: #1f1f1f !important;
+}
+
+/* 工具调用卡片 - 融入背景 */
+.agent-client-message-tool-call,
+.agent-client-message-plan,
+.agent-client-terminal-renderer {
+  background-color: #ddd4cc !important;
+  border-color: #c8bdb5 !important;
+  color: #1f1f1f !important;
+}
+
+/* 工具调用内所有文字 */
+.agent-client-message-tool-call *,
+.agent-client-message-plan *,
+.agent-client-message-tool-call-title,
+.agent-client-message-tool-call-status,
+.agent-client-message-tool-call-locations,
+.agent-client-message-tool-call-command,
+.agent-client-message-plan-title,
+.agent-client-message-plan-entry {
+  color: #1f1f1f !important;
+}
+
+/* muted/faint 文字在米色背景上要够深 */
+.agent-client-chat-view-container .agent-client-message-tool-call-status,
+.agent-client-chat-view-container [class*="muted"],
+.agent-client-chat-view-container [class*="faint"] {
+  color: #555555 !important;
+}
+
+/* 消息间距 */
+.agent-client-chat-view-messages {
+  gap: 12px !important;
+  padding: 12px 0 !important;
+}
+
+/* 用户消息气泡 - 右对齐，半透明深色（匹配 Claudian rgba(0,0,0,0.3)） */
+.agent-client-message-renderer.agent-client-message-user {
+  background: rgba(0, 0, 0, 0.3) !important;
+  color: #1f1f1f !important;
+  border: none !important;
+  border-radius: 8px !important;
+  border-end-end-radius: 4px !important;
+  align-self: flex-end !important;
+  max-width: 95% !important;
+  box-shadow: none !important;
+  padding: 10px 14px !important;
+}
+
+.agent-client-message-renderer.agent-client-message-user * {
+  color: #1f1f1f !important;
+}
+
+/* AI 消息 - 左对齐，无背景，全宽 */
+.agent-client-message-renderer.agent-client-message-assistant {
+  background-color: transparent !important;
+  border: none !important;
+  align-self: stretch !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  padding: 10px 14px !important;
+  border-end-start-radius: 4px !important;
+}
+
+/* 所有消息文字 */
+.agent-client-message,
+.agent-client-message-content,
+.agent-client-message-content p,
+.agent-client-message-content li,
+.agent-client-message-content h1,
+.agent-client-message-content h2,
+.agent-client-message-content h3,
+.agent-client-message-content h4,
+.agent-client-message-content h5,
+.agent-client-message-content h6,
+.agent-client-message-content strong,
+.agent-client-message-content em {
+  color: #1f1f1f !important;
+}
+
+/* 可读性 - 匹配 Claudian line-height: 1.5 */
+.agent-client-message-content {
+  line-height: 1.5 !important;
+}
+
+.agent-client-message-content p {
+  margin: 0 0 8px 0 !important;
+}
+
+.agent-client-message-content p:last-child {
+  margin-bottom: 0 !important;
+}
+
+/* 标题 - 匹配 Claudian（不强制放大，沿用主题默认） */
+.agent-client-message-content h1 {
+  font-weight: 700 !important;
+  border-bottom: 1px solid #c8bdb5 !important;
+  padding-bottom: 4px !important;
+  margin: 14px 0 8px !important;
+}
+
+.agent-client-message-content h2 {
+  font-weight: 700 !important;
+  margin: 12px 0 6px !important;
+}
+
+.agent-client-message-content h3 {
+  font-weight: 600 !important;
+  margin: 10px 0 4px !important;
+}
+
+/* 行内代码 - 匹配 Claudian font-size: 13px, monospace */
+.agent-client-message-content code {
+  color: #c7254e !important;
+  background-color: #f0e8e0 !important;
+  border: 1px solid #d4cac0 !important;
+  padding: 1px 4px !important;
+  border-radius: 3px !important;
+  font-family: var(--font-monospace) !important;
+  font-size: 13px !important;
+}
+
+/* 代码块 - 匹配 Claudian：轻背景、小 padding、无阴影 */
+.agent-client-message-content pre {
+  background-color: rgba(0, 0, 0, 0.08) !important;
+  border: 1px solid #c8bdb5 !important;
+  padding: 8px 12px !important;
+  border-radius: 6px !important;
+  margin: 8px 0 !important;
+  overflow-x: auto !important;
+  box-shadow: none !important;
+}
+
+.agent-client-message-content pre code {
+  color: #1f1f1f !important;
+  background-color: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+  font-size: 13px !important;
+}
+
+/* 列表 - 匹配 Claudian padding-inline-start: 20px */
+.agent-client-message-content ul,
+.agent-client-message-content ol {
+  margin: 8px 0 !important;
+  padding-left: 20px !important;
+}
+
+.agent-client-message-content li {
+  color: #1f1f1f !important;
+  margin: 3px 0 !important;
+  line-height: 1.5 !important;
+}
+
+/* Bullet 符号颜色 */
+.agent-client-message-content li::marker {
+  color: #1f1f1f !important;
+}
+
+/* Hashtags/Tags：提升对比度 */
+.agent-client-chat-view-container .tag,
+.agent-client-chat-view-container .hashtag,
+.agent-client-chat-view-container .cm-hashtag {
+  background-color: #dbeafe !important; /* 极浅蓝色 */
+  color: #1e40af !important; /* 深蓝色文字 */
+  border: 1px solid #bfdbfe !important;
+  border-radius: 4px !important;
+  padding: 1px 6px !important;
+  font-size: 0.9em !important;
+  font-weight: 600 !important;
+  text-decoration: none !important;
+  display: inline-block !important;
+  margin: 0 2px !important;
+}
+
+.agent-client-chat-view-container .tag:hover,
+.agent-client-chat-view-container .hashtag:hover {
+  background-color: #bfdbfe !important;
+}
+
+/* 链接 */
+.agent-client-message-content a {
+  color: #4a7ba7 !important;
+  text-decoration: underline !important;
+}
+
+/* 引用块 */
+.agent-client-message-content blockquote {
+  border-left: 4px solid #4a7ba7 !important;
+  background-color: #ddd4cc !important;
+  padding: 4px 16px !important;
+  margin: 12px 0 !important;
+  color: #555555 !important;
+  font-style: italic !important;
+  border-radius: 0 4px 4px 0 !important;
+}
+
+/* 表格：同时覆盖旧选择器和实际渲染容器 .markdown-rendered */
+.agent-client-message-content table,
+.agent-client-chat-view-container .markdown-rendered table {
+  border-collapse: collapse !important;
+  width: 100% !important;
+  margin: 14px 0 !important;
+}
+
+.agent-client-message-content td,
+.agent-client-message-content th,
+.agent-client-chat-view-container .markdown-rendered table td,
+.agent-client-chat-view-container .markdown-rendered table th {
+  border: 1px solid #d4cac0 !important;
+  padding: 10px 12px !important;
+  color: #1f1f1f !important;
+  background-color: transparent !important;
+}
+
+.agent-client-message-content th,
+.agent-client-chat-view-container .markdown-rendered table th {
+  background-color: #ddd4cc !important;
+  font-weight: 700 !important;
+}
+
+.agent-client-message-content tr:nth-child(even) td,
+.agent-client-chat-view-container .markdown-rendered table tr:nth-child(even) td {
+  background-color: #e0d5cd !important;
+}
+
+/* 模态（Ant Design） */
+.ant-modal,
+.ant-modal-content,
+.ant-modal-header,
+.ant-modal-body {
+  background-color: #ebe0d8 !important;
+  color: #1f1f1f !important;
+}
+
+/* ── Session History Modal（Obsidian Modal）────────────── */
+
+/* 模态窗口背景 & 所有文字 */
+.modal:has([class*="agent-client-session-history"]) {
+  background-color: #ebe0d8 !important;
+}
+
+.modal:has([class*="agent-client-session-history"]) * {
+  color: #1f1f1f !important;
+}
+
+/* 标题 */
+.modal:has([class*="agent-client-session-history"]) h2 {
+  color: #1f1f1f !important;
+  border-bottom: 1px solid #c8bdb5 !important;
+  padding-bottom: 8px !important;
+  margin-bottom: 12px !important;
+}
+
+/* 列表容器 */
+.agent-client-session-history-list {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 6px !important;
+}
+
+/* 条目 */
+.agent-client-session-history-item {
+  background-color: #ddd4cc !important;
+  border: 1px solid #c8bdb5 !important;
+  border-radius: 6px !important;
+  padding: 8px 12px !important;
+}
+
+.agent-client-session-history-item:hover {
+  background-color: #d4c9c0 !important;
+}
+
+.agent-client-session-history-item-title span {
+  color: #1f1f1f !important;
+  font-weight: 500 !important;
+}
+
+.agent-client-session-history-item-timestamp {
+  color: #555555 !important;
+  font-size: 12px !important;
+}
+
+/* 过滤器复选框 */
+.agent-client-session-history-filter-label span {
+  color: #1f1f1f !important;
+}
+
+/* 空/加载/错误状态 */
+.agent-client-session-history-empty-text,
+.agent-client-session-history-loading p,
+.agent-client-session-history-error-text {
+  color: #1f1f1f !important;
+}
+
+/* 按钮 */
+.agent-client-session-history-load-more-button,
+.agent-client-session-history-retry-button {
+  background-color: #ddd4cc !important;
+  border: 1px solid #c8bdb5 !important;
+  color: #1f1f1f !important;
+  border-radius: 4px !important;
+  padding: 4px 12px !important;
+  cursor: pointer !important;
+}
+
+/* 提示横幅 */
+.agent-client-session-history-local-banner,
+.agent-client-session-history-warning-banner {
+  background-color: #ddd4cc !important;
+  border: 1px solid #c8bdb5 !important;
+  border-radius: 4px !important;
+  padding: 6px 12px !important;
+  margin-bottom: 8px !important;
+}
+
+/* ===== 修复状态栏遮挡输入区域 ===== */
+.workspace-leaf-content[data-type="agent-client-chat-view"] {
+  padding-bottom: 28px !important;
+}
+
+/* ===== 技能/命令下拉菜单（SuggestionPopup）主题适配 ===== */
+.agent-client-mention-dropdown {
+  background-color: #ddd4cc !important;
+  border-color: #c8bdb5 !important;
+}
+
+.agent-client-mention-dropdown-item {
+  color: #1f1f1f !important;
+}
+
+/* 选中项：使用与主题一致的浅色高亮，避免过深 */
+.agent-client-mention-dropdown-item.agent-client-selected {
+  background-color: #c8bdb5 !important;
+}
+
+.agent-client-mention-dropdown-item:hover {
+  background-color: #d0c4bb !important;
+}
+
+.agent-client-mention-dropdown-item-name {
+  color: #1f1f1f !important;
+}
+
+.agent-client-mention-dropdown-item-path {
+  color: #555555 !important;
+}
+
+.agent-client-mention-dropdown-item.agent-client-has-border {
+  border-bottom-color: #c8bdb5 !important;
+}

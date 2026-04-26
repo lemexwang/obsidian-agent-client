@@ -32,6 +32,7 @@ import {
 	tryRestoreConfigOption,
 	restoreLegacyConfig,
 } from "../services/session-state";
+import { extractErrorMessage } from "../utils/error-utils";
 
 // ============================================================================
 // Types
@@ -278,7 +279,7 @@ export function useAgentSession(
 				setSession((prev) => ({ ...prev, state: "error" }));
 				setErrorInfo({
 					title: "Session Creation Failed",
-					message: `Failed to create new session: ${error instanceof Error ? error.message : String(error)}`,
+					message: `Failed to create new session: ${extractErrorMessage(error)}`,
 					suggestion:
 						"Please check the agent configuration and try again.",
 				});
