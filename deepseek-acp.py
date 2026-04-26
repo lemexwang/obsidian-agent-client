@@ -603,7 +603,11 @@ async def handle_prompt(req_id, session_id: str, prompt: list) -> None:
 
     if not cancelled and (final_content or final_reasoning):
         assistant_msg: dict = {"role": "assistant", "content": final_content or ""}
-        if final_reasoning:
+        # Thinking-mode turns MUST always include reasoning_content (even empty string),
+        # otherwise DeepSeek rejects the next multi-turn request with a 400 error.
+        if not model_supports_tools(model_value):
+            assistant_msg["reasoning_content"] = final_reasoning
+        elif final_reasoning:
             assistant_msg["reasoning_content"] = final_reasoning
         messages.append(assistant_msg)
 
