@@ -82,6 +82,19 @@ export default defineConfig({
         ],
       },
       {
+        text: "Advanced Configuration & Patches",
+        items: [
+          { text: "Agent Settings (data.json)", link: "/advanced/agent-settings" },
+          { text: "Custom Agent Logos", link: "/advanced/custom-logo" },
+          { text: "ESC Shortcut Patch", link: "/advanced/esc-shortcut" },
+          { text: "Windows Installation", link: "/advanced/windows-setup" },
+          { text: "Usage Display Patch", link: "/advanced/usage-display-patch" },
+          { text: "Rich Text Copy Fix", link: "/advanced/rich-text-copy-fix" },
+          { text: "Responding Status Fix", link: "/advanced/responding-fix" },
+          { text: "RAG Setup Guide", link: "/advanced/rag-setup" },
+        ],
+      },
+      {
         text: "Help",
         items: [
           { text: "FAQ", link: "/help/faq" },
