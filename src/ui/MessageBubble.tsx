@@ -350,6 +350,68 @@ function markdownToHtml(markdown: string): string {
 	// Links: [text](url)
 	html = html.replace(/\[([^\]]+)\]\(([^\)]+)\)/g, '<a href="$2">$1</a>');
 
+	// Tables: convert markdown pipe tables to HTML
+	// Matches contiguous lines that all contain pipe characters,
+	// with at least one separator row (e.g. |---|---|)
+	html = html.replace(/(?:^\|.+\|\s*$\n?)+/gm, (tableBlock) => {
+		const lines = tableBlock.trim().split("\n");
+		if (lines.length < 2) return tableBlock;
+
+		// Second line must be a separator row
+		if (!/^\|[\s\-\|:]+$/.test(lines[1])) return tableBlock;
+
+		// Parse column alignments from separator row
+		const sepCells = lines[1].split("|").filter((c) => c.trim() !== "");
+		const alignments = sepCells.map((c) => {
+			const trimmed = c.trim();
+			if (trimmed.startsWith(":") && trimmed.endsWith(":")) return "center";
+			if (trimmed.endsWith(":")) return "right";
+			return "left";
+		});
+
+		const headerCells = lines[0]
+			.split("|")
+			.filter((c) => c.trim() !== "")
+			.map((c) => c.trim());
+
+		const tableStyle =
+			"border-collapse:collapse;width:100%;margin:8px 0;font-size:14px;";
+		const thStyle =
+			"border:1px solid #d0d7de;padding:6px 13px;background-color:#f6f8fa;font-weight:600;white-space:nowrap;";
+		const tdStyle = "border:1px solid #d0d7de;padding:6px 13px;";
+
+		let tableHtml = `<table style="${tableStyle}">`;
+
+		// Header
+		tableHtml += "<thead><tr>";
+		headerCells.forEach((cell, i) => {
+			tableHtml += `<th style="${thStyle}text-align:${alignments[i] || "left"};">${cell}</th>`;
+		});
+		tableHtml += "</tr></thead>";
+
+		// Body rows
+		tableHtml += "<tbody>";
+		for (let i = 2; i < lines.length; i++) {
+			const cells = lines[i]
+				.split("|")
+				.map((c) => c.trim())
+				.filter((c, idx, arr) => {
+					// Drop empty first (leading |) and empty last (trailing |)
+					if (idx === 0 && c === "") return false;
+					if (idx === arr.length - 1 && c === "") return false;
+					return true;
+				});
+			tableHtml += "<tr>";
+			cells.forEach((cell, j) => {
+				tableHtml += `<td style="${tdStyle}text-align:${alignments[j] || "left"};">${cell}</td>`;
+			});
+			tableHtml += "</tr>";
+		}
+		tableHtml += "</tbody></table>";
+
+		return tableHtml;
+	});
+
 	// Paragraphs
 	html = html
 		.split("\n\n")
@@ -357,7 +419,8 @@ function markdownToHtml(markdown: string): string {
 			if (
 				p.trim().startsWith("<h") ||
 				p.trim().startsWith("<ul") ||
-				p.trim().startsWith("<pre")
+				p.trim().startsWith("<pre") ||
+				p.trim().startsWith("<table")
 			) {
 				return p;
 			}
