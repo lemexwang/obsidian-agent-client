@@ -156,6 +156,7 @@ export class AcpClient {
 		// Prepare environment variables
 		let baseEnv: NodeJS.ProcessEnv = {
 			...process.env,
+			PYTHONUNBUFFERED: "1",
 			...(config.env || {}),
 		};
 
@@ -317,8 +318,18 @@ export class AcpClient {
 		const stdout = agentProcess.stdout;
 
 		const input = new WritableStream<Uint8Array>({
-			write(chunk: Uint8Array) {
-				stdin.write(chunk);
+			write: (chunk: Uint8Array) => {
+				return new Promise<void>((resolve, reject) => {
+					stdin.write(chunk, (error) => {
+						if (error) {
+							this.logger.error("[AcpClient] stdin.write error:", error);
+							reject(error);
+						}
+					});
+					// Resolve immediately. Do not wait for the callback or drain event.
+					// This prevents deadlocks if Node.js/Electron fails to fire the callback for small chunks.
+					resolve();
+				});
 			},
 			close() {
 				stdin.end();

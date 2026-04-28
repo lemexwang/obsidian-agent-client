@@ -132,6 +132,9 @@ export function useAgentMessages(
 		flushScheduledRef.current = false;
 		const updates = pendingUpdatesRef.current;
 		if (updates.length === 0) return;
+		const ts = performance.now();
+		const types = updates.map((u) => u.type).join(",");
+		console.log(`[DEBUG:flushPending] RAF fired @ ${ts.toFixed(0)}, ${updates.length} updates: [${types}]`);
 		pendingUpdatesRef.current = [];
 
 		setMessages((prev) => {
@@ -149,10 +152,16 @@ export function useAgentMessages(
 
 	const enqueueUpdate = useCallback(
 		(update: SessionUpdate) => {
-			if (ignoreUpdatesRef.current) return;
+			if (ignoreUpdatesRef.current) {
+				console.log("[DEBUG:enqueueUpdate] IGNORED (ignoreUpdates=true)", update.type);
+				return;
+			}
+			const ts = performance.now();
+			console.log(`[DEBUG:enqueueUpdate] + ${update.type} @ ${ts.toFixed(0)}`, update.type === "tool_call" || update.type === "tool_call_update" ? (update as any).toolCallId : "");
 			pendingUpdatesRef.current.push(update);
 			if (!flushScheduledRef.current) {
 				flushScheduledRef.current = true;
+				console.log(`[DEBUG:enqueueUpdate] RAF scheduled @ ${ts.toFixed(0)}`);
 				requestAnimationFrame(flushPendingUpdates);
 			}
 		},
@@ -326,6 +335,7 @@ export function useAgentMessages(
 
 			setIsSending(true);
 			setLastUserMessage(content);
+			console.log("[DEBUG:sendMessage] prompt sent, awaiting agent...");
 
 			const sendPromise = (async () => {
 				try {
@@ -340,8 +350,12 @@ export function useAgentMessages(
 					);
 
 					// Discard results if a newer send has started
-					if (generationRef.current !== generation) return;
+					if (generationRef.current !== generation) {
+						console.log("[DEBUG:sendMessage] result DISCARDED (stale gen)");
+						return;
+					}
 
+					console.log(`[DEBUG:sendMessage] agent finished, success=${result.success}`);
 					if (result.success) {
 						setIsSending(false);
 						setLastUserMessage(null);
@@ -388,6 +402,7 @@ export function useAgentMessages(
 			session.promptCapabilities,
 			shouldConvertToWsl,
 			addMessage,
+			flushPendingUpdates,
 			setErrorInfo,
 		],
 	);

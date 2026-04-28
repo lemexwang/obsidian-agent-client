@@ -1,28 +1,26 @@
 #!/usr/bin/env python3
 """
-DeepSeek ACP Agent v1.3
-ACP (Agent Client Protocol) wrapper for DeepSeek API.
+Gemma ACP Agent v1.1
+ACP (Agent Client Protocol) wrapper for Gemma models via Google AI Studio.
 
 Features:
-  - Full DeepSeek V4 model selection in the UI (V4 Pro / V4 Flash, normal + thinking)
-  - Legacy models kept for backward compatibility (deprecated Jul 2026)
+  - Gemma 4 model selection in the UI
   - Web search via DuckDuckGo (no API key required)
   - Vault file access: list, read, write, search Obsidian notes
 
 Usage:
-  python3 ~/bin/deepseek-acp.py
+  python3 ~/bin/gemma-acp.py
 
 Environment variables (set in Obsidian Agent Client plugin settings):
-  DEEPSEEK_API_KEY         Required. Your DeepSeek API key.
-  DEEPSEEK_MODEL           Optional. Default model. Default: deepseek-v4-flash
-  DEEPSEEK_BASE_URL        Optional. Default: https://api.deepseek.com
-  DEEPSEEK_SYSTEM_PROMPT   Optional. Override the default system prompt.
-  DEEPSEEK_WEB_SEARCH      Optional. Set to 'false' to disable web search. Default: true
+  GOOGLE_API_KEY         Required. Your Google AI Studio API key.
+  GEMMA_MODEL            Optional. Default model. Default: gemma-4-31b-it
+  GEMMA_SYSTEM_PROMPT    Optional. Override the default system prompt.
+  GEMMA_WEB_SEARCH       Optional. Set to 'false' to disable web search. Default: true
 
 Obsidian Agent Client configuration (Custom Agent):
   Command: python3
-  Args:    /Users/alice/bin/deepseek-acp.py  (or the path in your plugin's scripts/)
-  Env:     DEEPSEEK_API_KEY = sk-xxxx
+  Args:    /Users/alice/bin/gemma-acp.py  (or the path in your plugin's scripts/)
+  Env:     GOOGLE_API_KEY = AIza-xxxx
 """
 
 import asyncio
@@ -35,61 +33,30 @@ from pathlib import Path
 # ── Configuration ─────────────────────────────────────────────────────────────
 
 PROTOCOL_VERSION  = 1
-API_KEY           = os.environ.get("DEEPSEEK_API_KEY", "")
-DEFAULT_MODEL     = os.environ.get("DEEPSEEK_MODEL", "deepseek-v4-flash")
-BASE_URL          = os.environ.get("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
+API_KEY           = os.environ.get("GOOGLE_API_KEY", "")
+DEFAULT_MODEL     = os.environ.get("GEMMA_MODEL", "gemma-4-31b-it")
+BASE_URL          = "https://generativelanguage.googleapis.com/v1beta/openai/"
 SYSTEM_PROMPT     = os.environ.get(
-    "DEEPSEEK_SYSTEM_PROMPT",
+    "GEMMA_SYSTEM_PROMPT",
     "You are a helpful assistant with access to the Obsidian vault and the internet.\n"
     "Vault tools: list_vault_files, read_vault_file, write_vault_file, search_vault.\n"
     "Internet tool: web_search (use for current events, news, or up-to-date facts).\n"
     "Always use vault tools when the user refers to their notes or asks you to modify files.",
 )
-ENABLE_WEB_SEARCH = os.environ.get("DEEPSEEK_WEB_SEARCH", "true").lower() != "false"
-MAX_TOOL_ROUNDS   = 10   # max consecutive tool-call rounds per prompt
+ENABLE_WEB_SEARCH = os.environ.get("GEMMA_WEB_SEARCH", "true").lower() != "false"
+MAX_TOOL_ROUNDS   = 10
 
 # ── Model registry ─────────────────────────────────────────────────────────────
 
 MODEL_OPTIONS = [
     {
-        "group": "DeepSeek V4",
-        "name":  "DeepSeek V4",
+        "group": "Gemma 4",
+        "name":  "Gemma 4",
         "options": [
             {
-                "value":       "deepseek-v4-flash",
-                "name":        "V4 Flash",
-                "description": "快速 · 经济 · 1M 上下文",
-            },
-            {
-                "value":       "deepseek-v4-flash:thinking",
-                "name":        "V4 Flash (Thinking)",
-                "description": "推理模式 · 适合数学、代码、逻辑",
-            },
-            {
-                "value":       "deepseek-v4-pro",
-                "name":        "V4 Pro",
-                "description": "旗舰模型 · 1M 上下文",
-            },
-            {
-                "value":       "deepseek-v4-pro:thinking",
-                "name":        "V4 Pro (Thinking)",
-                "description": "旗舰推理模式",
-            },
-        ],
-    },
-    {
-        "group": "Legacy（将于 2026.7.24 弃用）",
-        "name":  "Legacy",
-        "options": [
-            {
-                "value":       "deepseek-chat",
-                "name":        "deepseek-chat",
-                "description": "→ V4 Flash（非推理）",
-            },
-            {
-                "value":       "deepseek-reasoner",
-                "name":        "deepseek-reasoner",
-                "description": "→ V4 Flash（推理）",
+                "value":       "gemma-4-31b-it",
+                "name":        "Gemma 4 31B",
+                "description": "31B 参数 · Google AI Studio",
             },
         ],
     },
@@ -107,21 +74,6 @@ def build_config_options(current_model: str) -> list:
             "options":      MODEL_OPTIONS,
         }
     ]
-
-
-def resolve_model(value: str) -> tuple[str, dict]:
-    """Returns (api_model_id, extra_api_kwargs).
-    Thinking variants pass enable_thinking=True in extra_body.
-    """
-    if value.endswith(":thinking"):
-        base = value[:-9]
-        return base, {"extra_body": {"enable_thinking": True}}
-    return value, {}
-
-
-def model_supports_tools(value: str) -> bool:
-    """Thinking mode and deepseek-reasoner do not support function calling."""
-    return not (value.endswith(":thinking") or value == "deepseek-reasoner")
 
 
 # ── Tool definitions ───────────────────────────────────────────────────────────
@@ -242,9 +194,9 @@ WEB_SEARCH_TOOLS = [
 
 # ── State ─────────────────────────────────────────────────────────────────────
 
-sessions:      dict[str, list[dict]] = {}   # sessionId -> message history
-session_models: dict[str, str]       = {}   # sessionId -> selected model value
-session_cwds:   dict[str, str]       = {}   # sessionId -> vault path (cwd)
+sessions:       dict[str, list[dict]] = {}
+session_models: dict[str, str]        = {}
+session_cwds:   dict[str, str]        = {}
 cancel_events:  dict[str, asyncio.Event] = {}
 
 # ── Wire I/O ──────────────────────────────────────────────────────────────────
@@ -271,22 +223,12 @@ def send_chunk(session_id: str, text: str) -> None:
         },
     })
 
-def send_thought_chunk(session_id: str, text: str) -> None:
-    send_notification("session/update", {
-        "sessionId": session_id,
-        "update": {
-            "sessionUpdate": "agent_thought_chunk",
-            "content": {"type": "text", "text": text},
-        },
-    })
-
 # ── Vault helpers ─────────────────────────────────────────────────────────────
 
 _SKIP = {".obsidian", ".git", "node_modules", "__pycache__", ".trash", ".DS_Store"}
 
 
 def _safe_path(cwd: str, rel: str) -> Path | None:
-    """Resolve rel inside the vault; returns None if it escapes the vault root."""
     vault = Path(cwd).resolve()
     p = (vault / rel).resolve() if not Path(rel).is_absolute() else Path(rel).resolve()
     try:
@@ -460,7 +402,7 @@ def extract_text(prompt: list) -> str:
 
 async def handle_prompt(req_id, session_id: str, prompt: list) -> None:
     if not API_KEY:
-        send_chunk(session_id, "Error: DEEPSEEK_API_KEY is not set.")
+        send_chunk(session_id, "Error: GOOGLE_API_KEY is not set.")
         send_response(req_id, {"stopReason": "end_turn"})
         return
 
@@ -474,27 +416,22 @@ async def handle_prompt(req_id, session_id: str, prompt: list) -> None:
     if session_id not in sessions:
         sessions[session_id] = [{"role": "system", "content": SYSTEM_PROMPT}]
 
-    model_value          = session_models.get(session_id, DEFAULT_MODEL)
-    api_model, extra_kw  = resolve_model(model_value)
-    use_tools            = model_supports_tools(model_value)
-
-    messages = sessions[session_id]
-    user_text = extract_text(prompt)
+    model_value = session_models.get(session_id, DEFAULT_MODEL)
+    messages    = sessions[session_id]
+    user_text   = extract_text(prompt)
     if user_text:
         messages.append({"role": "user", "content": user_text})
 
     cancel_event = asyncio.Event()
     cancel_events[session_id] = cancel_event
 
-    # Build active tool list
     tools: list[dict] = list(VAULT_TOOLS)
     if ENABLE_WEB_SEARCH:
         tools.extend(WEB_SEARCH_TOOLS)
 
-    final_content  = ""
-    final_reasoning = ""
-    cancelled      = False
-    client        = AsyncOpenAI(api_key=API_KEY, base_url=BASE_URL)
+    final_content = ""
+    cancelled     = False
+    client = AsyncOpenAI(api_key=API_KEY, base_url=BASE_URL)
 
     try:
         for _round in range(MAX_TOOL_ROUNDS):
@@ -503,19 +440,16 @@ async def handle_prompt(req_id, session_id: str, prompt: list) -> None:
                 break
 
             create_kwargs: dict = {
-                "model":    api_model,
+                "model":    model_value,
                 "messages": messages,
                 "stream":   True,
-                **extra_kw,
+                "tools":    tools,
+                "tool_choice": "auto",
             }
-            if use_tools and tools:
-                create_kwargs["tools"]       = tools
-                create_kwargs["tool_choice"] = "auto"
 
             stream = await client.chat.completions.create(**create_kwargs)
 
             round_content    = ""
-            round_reasoning  = ""
             tool_calls_buf: dict[int, dict] = {}
 
             async for chunk in stream:
@@ -525,13 +459,6 @@ async def handle_prompt(req_id, session_id: str, prompt: list) -> None:
                 if not chunk.choices:
                     continue
                 delta = chunk.choices[0].delta
-
-                rc = getattr(delta, "reasoning_content", None)
-                if rc is None:
-                    rc = (getattr(delta, "model_extra", None) or {}).get("reasoning_content")
-                if rc:
-                    round_reasoning += rc
-                    send_thought_chunk(session_id, rc)
 
                 if delta.content:
                     round_content += delta.content
@@ -554,13 +481,10 @@ async def handle_prompt(req_id, session_id: str, prompt: list) -> None:
             if cancelled:
                 break
 
-            # No tool calls → final response
             if not tool_calls_buf:
-                final_content   = round_content
-                final_reasoning = round_reasoning
+                final_content = round_content
                 break
 
-            # Append assistant turn with tool_calls
             assistant_turn = {
                 "role":       "assistant",
                 "content":    round_content or None,
@@ -576,11 +500,8 @@ async def handle_prompt(req_id, session_id: str, prompt: list) -> None:
                     for idx in sorted(tool_calls_buf)
                 ],
             }
-            if round_reasoning:
-                assistant_turn["reasoning_content"] = round_reasoning
             messages.append(assistant_turn)
 
-            # Execute tools and append results
             for idx in sorted(tool_calls_buf):
                 buf = tool_calls_buf[idx]
                 try:
@@ -601,15 +522,8 @@ async def handle_prompt(req_id, session_id: str, prompt: list) -> None:
     finally:
         cancel_events.pop(session_id, None)
 
-    if not cancelled and (final_content or final_reasoning):
-        assistant_msg: dict = {"role": "assistant", "content": final_content or ""}
-        # Thinking-mode turns MUST always include reasoning_content (even empty string),
-        # otherwise DeepSeek rejects the next multi-turn request with a 400 error.
-        if not model_supports_tools(model_value):
-            assistant_msg["reasoning_content"] = final_reasoning
-        elif final_reasoning:
-            assistant_msg["reasoning_content"] = final_reasoning
-        messages.append(assistant_msg)
+    if not cancelled and final_content:
+        messages.append({"role": "assistant", "content": final_content})
 
     send_response(req_id, {"stopReason": "cancelled" if cancelled else "end_turn"})
 
@@ -618,7 +532,7 @@ async def handle_prompt(req_id, session_id: str, prompt: list) -> None:
 
 async def main() -> None:
     loop = asyncio.get_event_loop()
-    debug_log = Path("/tmp/deepseek-acp-debug.log")
+    debug_log = Path("/tmp/gemma-acp-debug.log")
     with debug_log.open("a", encoding="utf-8") as f:
         f.write(f"\n--- Starting session {uuid.uuid4().hex} ---\n")
         f.flush()
@@ -650,9 +564,9 @@ async def main() -> None:
                 "protocolVersion": PROTOCOL_VERSION,
                 "agentCapabilities": {"loadSession": False},
                 "agentInfo": {
-                    "name":    "deepseek-acp",
-                    "title":   f"DeepSeek ({DEFAULT_MODEL})",
-                    "version": "1.3.0",
+                    "name":    "gemma-acp",
+                    "title":   f"Gemma ({DEFAULT_MODEL})",
+                    "version": "1.0.0",
                 },
             })
 

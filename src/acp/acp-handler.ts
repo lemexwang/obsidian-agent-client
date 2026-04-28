@@ -22,6 +22,10 @@ export class AcpHandler {
 	/** Tracks session updates during a prompt. */
 	private promptSessionUpdateCount = 0;
 
+	/** State for parsing <think>...</think> tags across streaming chunks. */
+	private isInThinkingMode = false;
+	private pendingTagBuffer = "";
+
 	constructor(
 		private permissionManager: PermissionManager,
 		private terminalManager: TerminalManager,
@@ -34,9 +38,11 @@ export class AcpHandler {
 	// Callback Registration
 	// ====================================================================
 
-	/** Reset the update counter. Called by AcpClient before each sendPrompt. */
+	/** Reset the update counter and think-tag parser state. Called by AcpClient before each sendPrompt. */
 	resetUpdateCount(): void {
 		this.promptSessionUpdateCount = 0;
+		this.isInThinkingMode = false;
+		this.pendingTagBuffer = "";
 	}
 
 	/** Whether any session update was received since the last reset. */
@@ -72,6 +78,10 @@ export class AcpHandler {
 
 		switch (update.sessionUpdate) {
 			case "agent_message_chunk":
+				if (update.content.type === "text") {
+					this.parseAndEmitTextChunk(update.content.text, sessionId);
+				}
+				break;
 			case "agent_thought_chunk":
 			case "user_message_chunk":
 				if (update.content.type === "text") {
@@ -248,5 +258,70 @@ export class AcpHandler {
 			);
 		}
 		return Promise.resolve({});
+	}
+
+	// ====================================================================
+	// <think> Tag Parser (for models that inline reasoning in output)
+	// ====================================================================
+
+	/**
+	 * Parse a streaming text chunk, splitting on <think>...</think> tags.
+	 * Content inside the tags is emitted as agent_thought_chunk; content outside
+	 * is emitted as agent_message_chunk. Handles tags split across chunk boundaries
+	 * by buffering the incomplete tag suffix until the next chunk arrives.
+	 */
+	private parseAndEmitTextChunk(rawText: string, sessionId: string): void {
+		let text = this.pendingTagBuffer + rawText;
+		this.pendingTagBuffer = "";
+
+		while (text.length > 0) {
+			if (this.isInThinkingMode) {
+				const closeIdx = text.indexOf("</think>");
+				if (closeIdx === -1) {
+					const partial = this.findPartialTagSuffix(text, "</think>");
+					if (partial > 0) {
+						const emit = text.slice(0, text.length - partial);
+						if (emit) this.emitSessionUpdate({ type: "agent_thought_chunk", sessionId, text: emit });
+						this.pendingTagBuffer = text.slice(text.length - partial);
+					} else {
+						this.emitSessionUpdate({ type: "agent_thought_chunk", sessionId, text });
+					}
+					return;
+				}
+				const thinkContent = text.slice(0, closeIdx);
+				if (thinkContent) this.emitSessionUpdate({ type: "agent_thought_chunk", sessionId, text: thinkContent });
+				this.isInThinkingMode = false;
+				text = text.slice(closeIdx + "</think>".length);
+			} else {
+				const openIdx = text.indexOf("<think>");
+				if (openIdx === -1) {
+					const partial = this.findPartialTagSuffix(text, "<think>");
+					if (partial > 0) {
+						const emit = text.slice(0, text.length - partial);
+						if (emit) this.emitSessionUpdate({ type: "agent_message_chunk", sessionId, text: emit });
+						this.pendingTagBuffer = text.slice(text.length - partial);
+					} else {
+						this.emitSessionUpdate({ type: "agent_message_chunk", sessionId, text });
+					}
+					return;
+				}
+				const normalContent = text.slice(0, openIdx);
+				if (normalContent) this.emitSessionUpdate({ type: "agent_message_chunk", sessionId, text: normalContent });
+				this.isInThinkingMode = true;
+				text = text.slice(openIdx + "<think>".length);
+			}
+		}
+	}
+
+	/**
+	 * Return the length of the longest prefix of `tag` that `text` ends with.
+	 * Used to detect a tag split across chunk boundaries.
+	 */
+	private findPartialTagSuffix(text: string, tag: string): number {
+		const maxLen = Math.min(tag.length - 1, text.length);
+		for (let len = maxLen; len >= 1; len--) {
+			if (text.endsWith(tag.slice(0, len))) return len;
+		}
+		return 0;
 	}
 }
