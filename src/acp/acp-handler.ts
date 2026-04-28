@@ -271,7 +271,13 @@ export class AcpHandler {
 	 * by buffering the incomplete tag suffix until the next chunk arrives.
 	 */
 	private parseAndEmitTextChunk(rawText: string, sessionId: string): void {
-		let text = this.pendingTagBuffer + rawText;
+		// Combine buffers, then normalize Gemma-style <thought> tags to <think>
+		// so the parser below handles both formats uniformly. The proxy
+		// (gemma-anthr-proxy.py) also does this conversion, but normalizing
+		// here ensures correctness regardless of proxy behavior.
+		let text = (this.pendingTagBuffer + rawText)
+			.replace(/<thought>/g, "<think>")
+			.replace(/<\/thought>/g, "</think>");
 		this.pendingTagBuffer = "";
 
 		while (text.length > 0) {
