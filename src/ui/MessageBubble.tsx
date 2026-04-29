@@ -428,7 +428,7 @@ function markdownToHtml(markdown: string): string {
 		})
 		.join("\n");
 
-	return `<html><body>${html}</body></html>`;
+	return `<html><body style="background-color:white;color:black;margin:0;padding:0;">${html}</body></html>`;
 }
 
 /**
@@ -487,7 +487,7 @@ function CopyRichButton({ contents }: { contents: MessageContent[] }) {
 		const el = document.createElement("div");
 		el.setAttribute("contenteditable", "true");
 		el.style.cssText =
-			"position:fixed;left:-9999px;top:-9999px;opacity:0;pointer-events:none;white-space:pre-wrap;";
+			"position:fixed;left:-9999px;top:-9999px;opacity:0;pointer-events:none;white-space:pre-wrap;background-color:white;color:black;";
 		el.innerHTML = html;
 		document.body.appendChild(el);
 
