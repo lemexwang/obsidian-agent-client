@@ -320,12 +320,12 @@ function markdownToHtml(markdown: string): string {
 			.replace(/&/g, "&amp;")
 			.replace(/</g, "&lt;")
 			.replace(/>/g, "&gt;");
-		return `<pre style="background-color: #f6f8fa; padding: 16px; border-radius: 6px; font-family: ui-monospace,SFMono-Regular,SF Mono,Menlo,Consolas,Liberation Mono,monospace; font-size: 85%; line-height: 1.45; overflow: auto;"><code>${escapedCode}</code></pre>`;
+		return `<pre style="background-color: #f6f8fa; color: #000000; padding: 16px; border-radius: 6px; font-family: ui-monospace,SFMono-Regular,SF Mono,Menlo,Consolas,Liberation Mono,monospace; font-size: 85%; line-height: 1.45; overflow: auto;"><code style="color: #000000;">${escapedCode}</code></pre>`;
 	});
 
 	// Inline code: `code`
 	html = html.replace(/`([^`]+)`/g, (_, code) => {
-		return `<code style="background-color: rgba(175,184,193,0.2); padding: 0.2em 0.4em; border-radius: 6px; font-family: ui-monospace,SFMono-Regular,SF Mono,Menlo,Consolas,Liberation Mono,monospace; font-size: 85%;">${code}</code>`;
+		return `<code style="background-color: rgba(175,184,193,0.2); color: #000000; padding: 0.2em 0.4em; border-radius: 6px; font-family: ui-monospace,SFMono-Regular,SF Mono,Menlo,Consolas,Liberation Mono,monospace; font-size: 85%;">${code}</code>`;
 	});
 
 	// Bold: **text**
@@ -335,20 +335,20 @@ function markdownToHtml(markdown: string): string {
 	html = html.replace(/\*(.*?)\*/g, "<i>$1</i>");
 
 	// Headers (must match longer patterns first)
-	html = html.replace(/^######\s+(.*)/gm, "<h6>$1</h6>");
-	html = html.replace(/^#####\s+(.*)/gm, "<h5>$1</h5>");
-	html = html.replace(/^####\s+(.*)/gm, "<h4>$1</h4>");
-	html = html.replace(/^###\s+(.*)/gm, "<h3>$1</h3>");
-	html = html.replace(/^##\s+(.*)/gm, "<h2>$1</h2>");
-	html = html.replace(/^#\s+(.*)/gm, "<h1>$1</h1>");
+	html = html.replace(/^######\s+(.*)/gm, '<h6 style="color:#000000;">$1</h6>');
+	html = html.replace(/^#####\s+(.*)/gm, '<h5 style="color:#000000;">$1</h5>');
+	html = html.replace(/^####\s+(.*)/gm, '<h4 style="color:#000000;">$1</h4>');
+	html = html.replace(/^###\s+(.*)/gm, '<h3 style="color:#000000;">$1</h3>');
+	html = html.replace(/^##\s+(.*)/gm, '<h2 style="color:#000000;">$1</h2>');
+	html = html.replace(/^#\s+(.*)/gm, '<h1 style="color:#000000;">$1</h1>');
 
 	// Lists (simplified)
-	html = html.replace(/^[*-]\s+(.*)/gm, "<li>$1</li>");
+	html = html.replace(/^[*-]\s+(.*)/gm, '<li style="color:#000000;">$1</li>');
 	// Wrap lists in <ul> (very basic logic)
-	html = html.replace(/((?:<li>.*<\/li>\n?)+)/g, "<ul>$1</ul>");
+	html = html.replace(/((?:<li[^>]*>.*<\/li>\n?)+)/g, "<ul>$1</ul>");
 
 	// Links: [text](url)
-	html = html.replace(/\[([^\]]+)\]\(([^\)]+)\)/g, '<a href="$2">$1</a>');
+	html = html.replace(/\[([^\]]+)\]\(([^\)]+)\)/g, '<a href="$2" style="color:#0563C1;">$1</a>');
 
 	// Tables: convert markdown pipe tables to HTML
 	// Matches contiguous lines that all contain pipe characters,
@@ -375,10 +375,10 @@ function markdownToHtml(markdown: string): string {
 			.map((c) => c.trim());
 
 		const tableStyle =
-			"border-collapse:collapse;width:100%;margin:8px 0;font-size:14px;";
+			"border-collapse:collapse;width:100%;margin:8px 0;font-size:14px;color:#000000;";
 		const thStyle =
-			"border:1px solid #d0d7de;padding:6px 13px;background-color:#f6f8fa;font-weight:600;white-space:nowrap;";
-		const tdStyle = "border:1px solid #d0d7de;padding:6px 13px;";
+			"border:1px solid #d0d7de;padding:6px 13px;background-color:#f6f8fa;color:#000000;font-weight:600;white-space:nowrap;";
+		const tdStyle = "border:1px solid #d0d7de;padding:6px 13px;color:#000000;";
 
 		let tableHtml = `<table style="${tableStyle}">`;
 
@@ -424,11 +424,11 @@ function markdownToHtml(markdown: string): string {
 			) {
 				return p;
 			}
-			return `<p>${p.replace(/\n/g, "<br>")}</p>`;
+			return `<p style="color:#000000;">${p.replace(/\n/g, "<br>")}</p>`;
 		})
 		.join("\n");
 
-	return `<html><body style="background-color:white;color:black;margin:0;padding:0;">${html}</body></html>`;
+	return `<html><head><style>body,p,li,ul,ol,h1,h2,h3,h4,h5,h6,td,th,tr,table,span,div,b,i,strong,em{color:#000000!important;background-color:transparent!important;}a{color:#0563C1!important;}pre,code{color:#000000!important;}body{background-color:white!important;}</style></head><body style="background-color:white;color:black;margin:0;padding:0;">${html}</body></html>`;
 }
 
 /**
