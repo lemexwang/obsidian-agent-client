@@ -53,9 +53,10 @@ BASE_URL          = os.environ.get("DEEPSEEK_BASE_URL", "https://api.deepseek.co
 SYSTEM_PROMPT     = os.environ.get(
     "DEEPSEEK_SYSTEM_PROMPT",
     "You are a helpful assistant with full access to the user's computer and the internet.\n"
-    "Tools: list_vault_files, read_vault_file, write_vault_file, search_vault, run_shell_command, web_search.\n"
+    "Tools: list_vault_files, read_vault_file, write_vault_file, search_vault, run_shell_command, web_search, fetch_webpage.\n"
     "You can use 'run_shell_command' to execute arbitrary shell commands for programming, compiling, or system management.\n"
-    "You can use file tools with absolute paths to read/write any file on the system.\n"\
+    "You can use file tools with absolute paths to read/write any file on the system.\n"
+    "Internet research: use web_search to find relevant URLs, then fetch_webpage to read full page content.\n"
     "If native tool calling is disabled, you MUST use tools by outputting XML: <tool_calls><tool_call name=\"tool_name\">{\"arg_name\": \"value\"}</tool_call></tool_calls>",)
 ENABLE_WEB_SEARCH = os.environ.get("DEEPSEEK_WEB_SEARCH", "true").lower() != "false"
 MAX_TOOL_ROUNDS   = 10   # max consecutive tool-call rounds per prompt
@@ -133,6 +134,11 @@ def resolve_model(value: str) -> tuple[str, dict]:
 
 def model_supports_tools(value: str) -> bool:
     """Thinking mode and deepseek-reasoner do not support function calling."""
+    return not (value.endswith(":thinking") or value == "deepseek-reasoner")
+
+
+def model_supports_vision(value: str) -> bool:
+    """Thinking mode and deepseek-reasoner do not support image input."""
     return not (value.endswith(":thinking") or value == "deepseek-reasoner")
 
 
@@ -253,7 +259,8 @@ WEB_SEARCH_TOOLS = [
             "name":        "web_search",
             "description": (
                 "Search the internet for current information, news, or facts. "
-                "Use when you need up-to-date data not available in your training."
+                "Use when you need up-to-date data not available in your training. "
+                "Returns titles, URLs, and short snippets. Use fetch_webpage to read full content."
             ),
             "parameters": {
                 "type":       "object",
@@ -266,7 +273,27 @@ WEB_SEARCH_TOOLS = [
                 "required": ["query"],
             },
         },
-    }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name":        "fetch_webpage",
+            "description": (
+                "Fetch the full text content of a web page by URL. "
+                "Use after web_search to read the complete article or page."
+            ),
+            "parameters": {
+                "type":       "object",
+                "properties": {
+                    "url": {
+                        "type":        "string",
+                        "description": "The full URL of the web page to fetch.",
+                    }
+                },
+                "required": ["url"],
+            },
+        },
+    },
 ]
 
 # ── State ─────────────────────────────────────────────────────────────────────
@@ -429,7 +456,7 @@ async def do_web_search(query: str) -> str:
         def _search():
             req = urllib.request.Request(
                 "https://api.tavily.com/search",
-                data=json.dumps({"api_key": tavily_key, "query": query, "search_depth": "basic", "max_results": 5}).encode("utf-8"),
+                data=json.dumps({"api_key": tavily_key, "query": query, "search_depth": "basic", "max_results": 10}).encode("utf-8"),
                 headers={"Content-Type": "application/json"}
             )
             with urllib.request.urlopen(req) as response:
@@ -451,6 +478,57 @@ async def do_web_search(query: str) -> str:
         return f"Search error: {exc}"
 
 
+async def do_fetch_webpage(url: str) -> str:
+    try:
+        import html.parser
+
+        class _TextExtractor(html.parser.HTMLParser):
+            def __init__(self):
+                super().__init__()
+                self.parts: list[str] = []
+                self._skip = False
+
+            def handle_starttag(self, tag, attrs):
+                if tag in ("script", "style", "nav", "footer", "head"):
+                    self._skip = True
+
+            def handle_endtag(self, tag):
+                if tag in ("script", "style", "nav", "footer", "head"):
+                    self._skip = False
+                if tag in ("p", "div", "br", "li", "h1", "h2", "h3", "h4", "tr"):
+                    self.parts.append("\n")
+
+            def handle_data(self, data):
+                if not self._skip:
+                    self.parts.append(data)
+
+        loop = asyncio.get_event_loop()
+        def _fetch():
+            req = urllib.request.Request(
+                url,
+                headers={"User-Agent": "Mozilla/5.0 (compatible; DeepSeek-Agent/1.0)"},
+            )
+            with urllib.request.urlopen(req, timeout=15) as resp:
+                charset = "utf-8"
+                ct = resp.headers.get_content_charset()
+                if ct:
+                    charset = ct
+                return resp.read().decode(charset, errors="replace")
+
+        html_text = await loop.run_in_executor(None, _fetch)
+        parser = _TextExtractor()
+        parser.feed(html_text)
+        text = "".join(parser.parts)
+        text = re.sub(r"\n{3,}", "\n\n", text)
+        text = re.sub(r"[ \t]+", " ", text)
+        text = text.strip()
+        if len(text) > 8000:
+            text = text[:8000] + "\n\n… (truncated)"
+        return text if text else "No readable text found on page."
+    except Exception as exc:
+        return f"Fetch error: {exc}"
+
+
 # ── Tool dispatcher ────────────────────────────────────────────────────────────
 
 async def execute_tool(name: str, args: dict, session_id: str) -> str:
@@ -466,6 +544,11 @@ async def execute_tool(name: str, args: dict, session_id: str) -> str:
         q = args.get("query", "")
         send_chunk(session_id, f"\n\n🔍 **Searching:** {q}\n\n")
         return await do_web_search(q)
+
+    if name == "fetch_webpage":
+        url = args.get("url", "")
+        send_chunk(session_id, f"\n\n🌐 **Fetching:** {url}\n\n")
+        return await do_fetch_webpage(url)
 
     if name == "list_vault_files":
         directory = args.get("directory", "")
@@ -497,8 +580,15 @@ async def execute_tool(name: str, args: dict, session_id: str) -> str:
 
 # ── Prompt content extraction ─────────────────────────────────────────────────
 
-def extract_text(prompt: list) -> str:
-    parts: list[str] = []
+def build_user_content(prompt: list, allow_images: bool = True):
+    """Convert ACP prompt blocks to OpenAI message content.
+
+    Returns a plain str when there are no images,
+    or a list of content blocks when images are present.
+    """
+    text_parts: list[str] = []
+    image_blocks: list[dict] = []
+
     for block in prompt:
         if not isinstance(block, dict):
             continue
@@ -506,21 +596,39 @@ def extract_text(prompt: list) -> str:
         if btype == "text":
             t = block.get("text", "")
             if t:
-                parts.append(t)
+                text_parts.append(t)
         elif btype == "resource":
             res  = block.get("resource", {})
             uri  = res.get("uri", "")
             text = res.get("text", "")
             if text:
-                parts.append(f"[File: {uri}]\n{text}")
+                text_parts.append(f"[File: {uri}]\n{text}")
         elif btype == "resource_link":
-            uri = block.get("uri", "")
+            uri  = block.get("uri", "")
             name = block.get("name", uri)
-            parts.append(f"[Attached File: {name}] (Path: {uri})\nNote: The user attached a file. Use the 'read_vault_file' tool with this path to read its content if you need it to answer the request.")
-        elif btype == "image":
-            mime = block.get("mimeType", "unknown")
-            parts.append(f"[Attached Image ({mime})]\nNote: The user attached an image. Since this model API currently does not support vision, please acknowledge the attachment and explain you can't 'see' the image directly but can help with associated context or files.")
-    return "\n".join(parts)
+            text_parts.append(
+                f"[Attached File: {name}] (Path: {uri})\n"
+                "Use the 'read_vault_file' tool with this path to read its content."
+            )
+        elif btype == "image" and allow_images:
+            data      = block.get("data", "")
+            mime_type = block.get("mimeType", "image/png")
+            if data:
+                image_blocks.append({
+                    "type":      "image_url",
+                    "image_url": {"url": f"data:{mime_type};base64,{data}"},
+                })
+
+    combined_text = "\n".join(text_parts)
+
+    if not image_blocks:
+        return combined_text
+
+    content: list[dict] = []
+    if combined_text:
+        content.append({"type": "text", "text": combined_text})
+    content.extend(image_blocks)
+    return content
 
 
 # ── Prompt handler ────────────────────────────────────────────────────────────
@@ -544,11 +652,12 @@ async def handle_prompt(req_id, session_id: str, prompt: list) -> None:
     model_value          = session_models.get(session_id, DEFAULT_MODEL)
     api_model, extra_kw  = resolve_model(model_value)
     use_tools            = model_supports_tools(model_value)
+    use_vision           = model_supports_vision(model_value)
 
     messages = sessions[session_id]
-    user_text = extract_text(prompt)
-    if user_text:
-        messages.append({"role": "user", "content": user_text})
+    user_content = build_user_content(prompt, allow_images=use_vision)
+    if user_content:
+        messages.append({"role": "user", "content": user_content})
 
     cancel_event = asyncio.Event()
     cancel_events[session_id] = cancel_event
@@ -636,6 +745,8 @@ async def handle_prompt(req_id, session_id: str, prompt: list) -> None:
                             args = {"command": t_args_str}
                         elif t_name == "web_search":
                             args = {"query": t_args_str}
+                        elif t_name == "fetch_webpage":
+                            args = {"url": t_args_str}
                         elif t_name == "read_vault_file":
                             args = {"path": t_args_str}
                         elif t_name == "search_vault":
@@ -740,11 +851,14 @@ async def main() -> None:
         if method == "initialize":
             send_response(req_id, {
                 "protocolVersion": PROTOCOL_VERSION,
-                "agentCapabilities": {"loadSession": False, "promptCapabilities": {"image": True}},
+                "agentCapabilities": {
+                    "loadSession":        False,
+                    "promptCapabilities": {"image": model_supports_vision(DEFAULT_MODEL)},
+                },
                 "agentInfo": {
                     "name":    "deepseek-acp",
                     "title":   f"DeepSeek ({DEFAULT_MODEL})",
-                    "version": "1.3.0",
+                    "version": "1.4.0",
                 },
             })
 
