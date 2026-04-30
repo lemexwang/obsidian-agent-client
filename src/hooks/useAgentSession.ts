@@ -40,8 +40,8 @@ import { extractErrorMessage } from "../utils/error-utils";
 
 export interface UseAgentSessionReturn {
 	session: ChatSession;
-			isReady: boolean;
-		balance: string | null;
+									isReady: boolean;
+						balance: string | null;
 
 	// Session lifecycle
 	createSession: (
@@ -63,7 +63,7 @@ export interface UseAgentSessionReturn {
 		configOptions?: SessionConfigOption[],
 	) => Promise<void>;
 
-			refreshBalance: () => Promise<void>;
+									refreshBalance: () => Promise<void>;
 
 		// Config
 	setMode: (modeId: string) => Promise<void>;
@@ -105,7 +105,7 @@ export function useAgentSession(
 		),
 	);
 
-	const 		const [balance, setBalance] = useState<string | null>(null);
+		const [balance, setBalance] = useState<string | null>(null);
 		const isReady = session.state === "ready";
 
 	// Ref for accessing latest session in callbacks without deps
@@ -170,7 +170,7 @@ export function useAgentSession(
 	// Session Lifecycle
 	// ============================================================
 
-			const refreshBalance = useCallback(async () => {
+									const refreshBalance = useCallback(async () => {
 			const s = sessionRef.current;
 			if (!s.sessionId) return;
 
@@ -262,7 +262,7 @@ export function useAgentSession(
 					lastActivityAt: new Date(),
 				}));
 
-									void refreshBalance();
+																								void refreshBalance();
 
 					// Restore last used config (model/mode)
 				if (sessionResult.configOptions && sessionResult.sessionId) {
@@ -549,7 +549,7 @@ export function useAgentSession(
 
 	return {
 		session,
-					isReady,
+								isReady,
 			balance,
 		createSession,
 		restartSession,

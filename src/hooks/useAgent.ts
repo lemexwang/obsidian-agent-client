@@ -144,7 +144,6 @@ export function useAgent(
 		settingsAccess,
 		vaultAccess,
 		agentSession.session,
-				agentSession.balance,
 		setErrorInfo,
 	);
 
@@ -177,8 +176,7 @@ export function useAgent(
 		() => ({
 			// Session state
 			session: agentSession.session,
-				agentSession.balance,
-			isReady: agentSession.isReady,
+				isReady: agentSession.isReady,
 				balance: agentSession.balance,
 
 			// Message state
@@ -221,8 +219,8 @@ export function useAgent(
 		}),
 		[
 			agentSession.session,
-				agentSession.balance,
 			agentSession.isReady,
+				agentSession.balance,
 			agentMessages.messages,
 			agentMessages.isSending,
 			agentMessages.lastUserMessage,
