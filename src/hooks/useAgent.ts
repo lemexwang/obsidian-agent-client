@@ -41,6 +41,7 @@ export interface UseAgentReturn {
 	// Session state
 	session: ChatSession;
 	isReady: boolean;
+		balance: string | null;
 
 	// Message state
 	messages: ChatMessage[];
@@ -143,6 +144,7 @@ export function useAgent(
 		settingsAccess,
 		vaultAccess,
 		agentSession.session,
+				agentSession.balance,
 		setErrorInfo,
 	);
 
@@ -175,7 +177,9 @@ export function useAgent(
 		() => ({
 			// Session state
 			session: agentSession.session,
+				agentSession.balance,
 			isReady: agentSession.isReady,
+				balance: agentSession.balance,
 
 			// Message state
 			messages: agentMessages.messages,
@@ -217,6 +221,7 @@ export function useAgent(
 		}),
 		[
 			agentSession.session,
+				agentSession.balance,
 			agentSession.isReady,
 			agentMessages.messages,
 			agentMessages.isSending,

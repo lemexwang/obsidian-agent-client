@@ -279,6 +279,19 @@ def _write(obj: dict) -> None:
     sys.stdout.buffer.write((json.dumps(obj, ensure_ascii=False) + "\n").encode())
     sys.stdout.buffer.flush()
 
+async def get_balance() -> dict:
+    """Fetch account balance from DeepSeek API."""
+    try:
+        import urllib.request
+        req = urllib.request.Request(
+            "https://api.deepseek.com/user/balance",
+            headers={"Authorization": f"Bearer {API_KEY}"},
+        )
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            return json.loads(resp.read().decode("utf-8"))
+    except Exception as exc:
+        return {"error": str(exc)}
+
 def send_response(req_id, result: dict) -> None:
     _write({"jsonrpc": "2.0", "id": req_id, "result": result})
 
@@ -799,6 +812,10 @@ async def main() -> None:
                     session_models.get(sid, DEFAULT_MODEL)
                 )
             })
+
+        elif method == "session/get_balance":
+            balance_info = await get_balance()
+            send_response(req_id, balance_info)
 
         elif method == "session/prompt":
             sid    = params.get("sessionId", "")

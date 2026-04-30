@@ -40,7 +40,8 @@ import { extractErrorMessage } from "../utils/error-utils";
 
 export interface UseAgentSessionReturn {
 	session: ChatSession;
-	isReady: boolean;
+			isReady: boolean;
+		balance: string | null;
 
 	// Session lifecycle
 	createSession: (
@@ -62,7 +63,9 @@ export interface UseAgentSessionReturn {
 		configOptions?: SessionConfigOption[],
 	) => Promise<void>;
 
-	// Config
+			refreshBalance: () => Promise<void>;
+
+		// Config
 	setMode: (modeId: string) => Promise<void>;
 	setModel: (modelId: string) => Promise<void>;
 	setConfigOption: (configId: string, value: string) => Promise<void>;
@@ -102,7 +105,8 @@ export function useAgentSession(
 		),
 	);
 
-	const isReady = session.state === "ready";
+	const 		const [balance, setBalance] = useState<string | null>(null);
+		const isReady = session.state === "ready";
 
 	// Ref for accessing latest session in callbacks without deps
 	const sessionRef = useRef(session);
@@ -166,7 +170,22 @@ export function useAgentSession(
 	// Session Lifecycle
 	// ============================================================
 
-	const createSession = useCallback(
+			const refreshBalance = useCallback(async () => {
+			const s = sessionRef.current;
+			if (!s.sessionId) return;
+
+			try {
+				const data = await agentClient.getBalance(s.sessionId);
+				// DeepSeek balance API typically returns { "balance": "1.23" } or similar
+				const balanceVal = data?.balance ?? "Unknown";
+				setBalance(balanceVal);
+			} catch (error) {
+				console.error("Failed to refresh balance:", error);
+				setBalance("Error");
+			}
+		}, [agentClient]);
+
+		const createSession = useCallback(
 		async (overrideAgentId?: string, overrideCwd?: string) => {
 			const effectiveCwd = overrideCwd || workingDirectory;
 			const settings = settingsAccess.getSnapshot();
@@ -243,7 +262,9 @@ export function useAgentSession(
 					lastActivityAt: new Date(),
 				}));
 
-				// Restore last used config (model/mode)
+									void refreshBalance();
+
+					// Restore last used config (model/mode)
 				if (sessionResult.configOptions && sessionResult.sessionId) {
 					let configOptions = sessionResult.configOptions;
 					configOptions = await tryRestoreConfigOption(
@@ -528,14 +549,16 @@ export function useAgentSession(
 
 	return {
 		session,
-		isReady,
+					isReady,
+			balance,
 		createSession,
 		restartSession,
 		closeSession,
 		forceRestartAgent,
 		cancelOperation,
 		getAvailableAgents,
-		updateSessionFromLoad,
+					updateSessionFromLoad,
+			refreshBalance,
 		setMode,
 		setModel,
 		setConfigOption,

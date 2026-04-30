@@ -222,6 +222,7 @@ export interface InputAreaProps {
 	onConfigOptionChange?: (configId: string, value: string) => void;
 	/** Context window usage (shown as percentage indicator) */
 	usage?: SessionUsage;
+	balance?: string | null;
 	/** Whether the agent supports image attachments */
 	supportsImages?: boolean;
 	/** Current agent ID (used to clear images on agent switch) */
@@ -280,6 +281,7 @@ export function InputArea({
 	configOptions,
 	onConfigOptionChange,
 	usage,
+		balance,
 	supportsImages = false,
 	agentId,
 	// Controlled component props
@@ -1090,6 +1092,7 @@ export function InputArea({
 					configOptions={configOptions}
 					onConfigOptionChange={onConfigOptionChange}
 					usage={usage}
+						balance={balance}
 					isSessionReady={isSessionReady}
 				/>
 			</div>
