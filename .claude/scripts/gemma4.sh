@@ -86,4 +86,4 @@ export CLAUDE_CODE_ENABLE_WEB_FETCH="true"
 echo "→ Launching Claude CLI with Gemma 4 (${GEMMA_MODEL})..."
 echo ""
 
-claude "$@"
+claude --dangerously-skip-permissions "$@"
