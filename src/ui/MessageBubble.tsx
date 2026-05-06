@@ -314,18 +314,63 @@ function extractTextContent(contents: MessageContent[]): string {
 function markdownToHtml(markdown: string): string {
 	let html = markdown.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
 
+	// 1. Symbol & LaTeX Replacements
+	const symbolMap: Record<string, string> = {
+		"\\rightarrow": "→", "\\leftarrow": "←", "\\leftrightarrow": "↔",
+		"\\Rightarrow": "⇒", "\\Leftarrow": "⇐", "\\Leftrightarrow": "⇔",
+		"\\longrightarrow": "⟶", "\\longleftarrow": "⟵",
+		"\\Longrightarrow": "⟹", "\\Longleftarrow": "⟸",
+		"\\uparrow": "↑", "\\downarrow": "↓", "\\updownarrow": "↕",
+		"\\mapsto": "↦", "\\rightleftharpoons": "⇌", "\\to": "→",
+		"\\approx": "≈", "\\neq": "≠", "\\equiv": "≡",
+		"\\pm": "±", "\\mp": "∓",
+		"\\times": "×", "\\div": "÷", "\\cdot": "·",
+		"\\leq": "≤", "\\geq": "≥", "\\ll": "≪", "\\gg": "≫",
+		"\\propto": "∝", "\\sim": "∼", "\\simeq": "≃",
+		"\\infty": "∞", "\\partial": "∂", "\\nabla": "∇",
+		"\\sum": "∑", "\\prod": "∏", "\\int": "∫", "\\oint": "∮",
+		"\\alpha": "α", "\\beta": "β", "\\gamma": "γ", "\\delta": "δ",
+		"\\epsilon": "ε", "\\varepsilon": "ε", "\\zeta": "ζ", "\\eta": "η",
+		"\\theta": "θ", "\\vartheta": "ϑ", "\\iota": "ι", "\\kappa": "κ",
+		"\\lambda": "λ", "\\mu": "μ", "\\nu": "ν", "\\xi": "ξ",
+		"\\pi": "π", "\\varpi": "ϖ", "\\rho": "ρ", "\\varrho": "ϱ",
+		"\\sigma": "σ", "\\varsigma": "ς", "\\tau": "τ", "\\upsilon": "υ",
+		"\\phi": "φ", "\\varphi": "φ", "\\chi": "χ", "\\psi": "ψ", "\\omega": "ω",
+		"\\Gamma": "Γ", "\\Delta": "Δ", "\\Theta": "Θ",
+		"\\Lambda": "Λ", "\\Xi": "Ξ", "\\Pi": "Π",
+		"\\Sigma": "Σ", "\\Upsilon": "Υ", "\\Phi": "Φ",
+		"\\Psi": "Ψ", "\\Omega": "Ω",
+		"\\subset": "⊂", "\\supset": "⊃", "\\subseteq": "⊆",
+		"\\supseteq": "⊇", "\\in": "∈", "\\notin": "∉", "\\ni": "∋",
+		"\\cup": "∪", "\\cap": "∩", "\\emptyset": "∅",
+		"\\forall": "∀", "\\exists": "∃", "\\neg": "¬",
+		"\\land": "∧", "\\lor": "∨",
+		"\\therefore": "∴", "\\because": "∵",
+		"\\angle": "∠", "\\perp": "⊥", "\\parallel": "∥",
+		"\\ldots": "…", "\\cdots": "⋯",
+		"\\degree": "°", "\\bigcirc": "○",
+		"\\triangle": "△", "\\square": "□",
+	};
+
+	html = html.replace(/\$\s*([^\$]+?)\s*\$/g, (_, content) => {
+		if (symbolMap[content]) {
+			return symbolMap[content];
+		}
+		return content;
+	});
+
 	// Code blocks: ```lang\ncode\n```
 	html = html.replace(/```(?:\w+)?\n([\s\S]+?)\n```/g, (_, code) => {
 		const escapedCode = code
 			.replace(/&/g, "&amp;")
 			.replace(/</g, "&lt;")
 			.replace(/>/g, "&gt;");
-		return `<pre style="background-color: #f6f8fa; color: #000000; padding: 16px; border-radius: 6px; font-family: ui-monospace,SFMono-Regular,SF Mono,Menlo,Consolas,Liberation Mono,monospace; font-size: 85%; line-height: 1.45; overflow: auto;"><code style="color: #000000;">${escapedCode}</code></pre>`;
+		return `<pre style="background-color:#f6f8fa;color:#000000;padding:16px;border-radius:6px;font-family:ui-monospace,SFMono-Regular,SF Mono,Menlo,Consolas,Liberation Mono,monospace;font-size:85%; line-height:1.45;mso-line-height-rule:exactly;overflow:auto;margin:8px 0;border:1px solid #e1e4e8;white-space:pre-wrap;word-wrap:break-word;"><code style="color:#000000;line-height:1.45;mso-line-height-rule:exactly;">${escapedCode}</code></pre>`;
 	});
 
 	// Inline code: `code`
 	html = html.replace(/`([^`]+)`/g, (_, code) => {
-		return `<code style="background-color: rgba(175,184,193,0.2); color: #000000; padding: 0.2em 0.4em; border-radius: 6px; font-family: ui-monospace,SFMono-Regular,SF Mono,Menlo,Consolas,Liberation Mono,monospace; font-size: 85%;">${code}</code>`;
+		return `<code style="background-color: rgba(175,184,193,0.2); color: #000000; padding:0.2em 0.4em;border-radius:6px;font-family:ui-monospace,SFMono-Regular,SF Mono,Menlo,Consolas,Liberation Mono,monospace;font-size:85%;line-height:1.45;mso-line-height-rule:exactly;">${code}</code>`;
 	});
 
 	// Bold: **text**
@@ -335,17 +380,17 @@ function markdownToHtml(markdown: string): string {
 	html = html.replace(/\*(.*?)\*/g, "<i>$1</i>");
 
 	// Headers (must match longer patterns first)
-	html = html.replace(/^######\s+(.*)/gm, '<h6 style="color:#000000;">$1</h6>');
-	html = html.replace(/^#####\s+(.*)/gm, '<h5 style="color:#000000;">$1</h5>');
-	html = html.replace(/^####\s+(.*)/gm, '<h4 style="color:#000000;">$1</h4>');
-	html = html.replace(/^###\s+(.*)/gm, '<h3 style="color:#000000;">$1</h3>');
-	html = html.replace(/^##\s+(.*)/gm, '<h2 style="color:#000000;">$1</h2>');
-	html = html.replace(/^#\s+(.*)/gm, '<h1 style="color:#000000;">$1</h1>');
+	html = html.replace(/^######\s+(.*)/gm, '<h6 style="color:#000000;font-size:13px;line-height:1.3;mso-line-height-rule:exactly;margin:10px 0 4px 0;">$1</h6>');
+	html = html.replace(/^#####\s+(.*)/gm, '<h5 style="color:#000000;font-size:15px;line-height:1.3;mso-line-height-rule:exactly;margin:12px 0 4px 0;">$1</h5>');
+	html = html.replace(/^####\s+(.*)/gm, '<h4 style="color:#000000;font-size:16px;line-height:1.3;mso-line-height-rule:exactly;margin:14px 0 6px 0;">$1</h4>');
+	html = html.replace(/^###\s+(.*)/gm, '<h3 style="color:#000000;font-size:18px;line-height:1.3;mso-line-height-rule:exactly;margin:16px 0 8px 0;">$1</h3>');
+	html = html.replace(/^##\s+(.*)/gm, '<h2 style="color:#000000;font-size:22px;font-weight:600;line-height:1.3;mso-line-height-rule:exactly;margin:20px 0 10px 0;padding-bottom:4px;border-bottom:1px solid #edf2f7;">$1</h2>');
+	html = html.replace(/^#\s+(.*)/gm, '<h1 style="color:#000000;font-size:26px;font-weight:700;line-height:1.3;mso-line-height-rule:exactly;margin:24px 0 12px 0;padding-bottom:8px;border-bottom:2px solid #edf2f7;">$1</h1>');
 
 	// Lists (simplified)
-	html = html.replace(/^[*-]\s+(.*)/gm, '<li style="color:#000000;">$1</li>');
+	html = html.replace(/^[*-]\s+(.*)/gm, '<li style="color:#000000;line-height:1.6;mso-line-height-rule:exactly;margin-bottom:4px;">$1</li>');
 	// Wrap lists in <ul> (very basic logic)
-	html = html.replace(/((?:<li[^>]*>.*<\/li>\n?)+)/g, "<ul>$1</ul>");
+	html = html.replace(/((?:<li[^>]*>.*<\/li>\n?)+)/g, '<ul style="margin:8px 0;padding-left:24px;line-height:1.6;">$1</ul>');
 
 	// Links: [text](url)
 	html = html.replace(/\[([^\]]+)\]\(([^\)]+)\)/g, '<a href="$2" style="color:#0563C1;">$1</a>');
@@ -375,10 +420,10 @@ function markdownToHtml(markdown: string): string {
 			.map((c) => c.trim());
 
 		const tableStyle =
-			"border-collapse:collapse;width:100%;margin:8px 0;font-size:14px;color:#000000;";
+			"border-collapse:collapse;width:100%;margin:8px 0;font-size:14px;color:#000000;line-height:1.5;mso-line-height-rule:exactly;";
 		const thStyle =
-			"border:1px solid #d0d7de;padding:6px 13px;background-color:#f6f8fa;color:#000000;font-weight:600;white-space:nowrap;";
-		const tdStyle = "border:1px solid #d0d7de;padding:6px 13px;color:#000000;";
+			"border:1px solid #d0d7de;padding:8px 13px;background-color:#f6f8fa;color:#000000;font-weight:600;white-space:nowrap;line-height:1.5;mso-line-height-rule:exactly;";
+		const tdStyle = "border:1px solid #d0d7de;padding:8px 13px;color:#000000;line-height:1.5;mso-line-height-rule:exactly;";
 
 		let tableHtml = `<table style="${tableStyle}">`;
 
@@ -424,11 +469,11 @@ function markdownToHtml(markdown: string): string {
 			) {
 				return p;
 			}
-			return `<p style="color:#000000;">${p.replace(/\n/g, "<br>")}</p>`;
+			return `<p style="color:#000000;line-height:1.6;margin:0 0 8px 0;mso-line-height-rule:exactly;font-size:15px;">${p.replace(/\n/g, "<br>")}</p>`;
 		})
 		.join("\n");
 
-	return `<html><head><style>body,p,li,ul,ol,h1,h2,h3,h4,h5,h6,td,th,tr,table,span,div,b,i,strong,em{color:#000000!important;background-color:transparent!important;}a{color:#0563C1!important;}pre,code{color:#000000!important;}body{background-color:white!important;}</style></head><body style="background-color:white;color:black;margin:0;padding:0;">${html}</body></html>`;
+	return `<html><head><style>body,p,li,ul,ol,h1,h2,h3,h4,h5,h6,td,th,tr,table,span,div,b,i,strong,em,pre,code{color:#000000!important;background-color:transparent!important;}a{color:#0563C1!important;text-decoration:underline;}body,p,li{font-family:sans-serif!important;font-size:15px;line-height:1.6!important;}h1,h2,h3,h4,h5,h6{line-height:1.3!important;}pre,code{color:#000000!important;line-height:1.45!important;font-family:monospace!important;}body{background-color:white!important;}</style></head><body style="background-color:white;color:black;margin:0;padding:8px;line-height:1.6;mso-line-height-rule:exactly;">${html}</body></html>`;
 }
 
 /**
