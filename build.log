@@ -1,0 +1,4 @@
+
+> obsidian-agent-client@0.10.0 build
+> tsc -noEmit -skipLibCheck && node esbuild.config.mjs production
+

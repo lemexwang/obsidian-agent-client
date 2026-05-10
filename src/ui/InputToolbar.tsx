@@ -108,6 +108,7 @@ export interface InputToolbarProps {
 	configOptions?: SessionConfigOption[];
 	onConfigOptionChange?: (configId: string, value: string) => void;
 	usage?: SessionUsage;
+		balance?: string | null;
 	isSessionReady: boolean;
 }
 
@@ -123,6 +124,7 @@ export function InputToolbar({
 	configOptions,
 	onConfigOptionChange,
 	usage,
+	balance,
 	isSessionReady,
 }: InputToolbarProps) {
 	// Refs
@@ -352,7 +354,13 @@ export function InputToolbar({
 				</>
 			)}
 
-			{/* Send/Stop Button */}
+							{balance && (
+					<span className="agent-client-balance-indicator" title="API Balance">
+						Balance: {balance}
+					</span>
+				)}
+
+				{/* Send/Stop Button */}
 			<button
 				ref={sendButtonRef}
 				onClick={onSendOrStop}

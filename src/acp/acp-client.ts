@@ -566,7 +566,27 @@ export class AcpClient {
 	/**
 	 * Disconnect from the agent and clean up resources.
 	 */
-	disconnect(): Promise<void> {
+			/**
+		 * Get the current API balance from the agent.
+		 * Only supported by specific agents (e.g., DeepSeek ACP).
+		 */
+		async getBalance(sessionId: string): Promise<any> {
+			const connection = this.requireConnection();
+
+			try {
+				this.logger.log(`[AcpClient] Fetching balance for session: ${sessionId}...`);
+				const response = await (connection as any).sendRequest("session/get_balance", {
+					sessionId,
+				});
+				this.logger.log(`[AcpClient] Balance received:`, response);
+				return response;
+			} catch (error) {
+				this.logger.error("[AcpClient] Get Balance Error:", error);
+				throw error;
+			}
+		}
+
+		disconnect(): Promise<void> {
 		this.logger.log("[AcpClient] Disconnecting...");
 
 		// Cancel all pending operations

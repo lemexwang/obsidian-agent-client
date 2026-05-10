@@ -1059,6 +1059,7 @@ export function ChatPanel({
 				void handleSetConfigOption(configId, value)
 			}
 			usage={session.usage}
+				balance={agent.balance}
 			supportsImages={session.promptCapabilities?.image ?? false}
 			agentId={session.agentId}
 			// Controlled component props (for broadcast commands)

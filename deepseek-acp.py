@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-DeepSeek ACP Agent v1.4
+DeepSeek ACP Agent v1.3
 ACP (Agent Client Protocol) wrapper for DeepSeek API.
 
 Features:
   - Full DeepSeek V4 model selection in the UI (V4 Pro / V4 Flash, normal + thinking)
   - Legacy models kept for backward compatibility (deprecated Jul 2026)
-  - Web search via DeepSeek native server-side $web_search (no DDG, no extra round-trip)
+  - Web search via DuckDuckGo (no API key required)
   - Vault file access: list, read, write, search Obsidian notes
 
 Usage:
@@ -124,6 +124,11 @@ def model_supports_tools(value: str) -> bool:
     return not (value.endswith(":thinking") or value == "deepseek-reasoner")
 
 
+def model_supports_vision(value: str) -> bool:
+    """Thinking mode and deepseek-reasoner do not support image input."""
+    return not (value.endswith(":thinking") or value == "deepseek-reasoner")
+
+
 # ── Tool definitions ───────────────────────────────────────────────────────────
 
 VAULT_TOOLS = [
@@ -219,11 +224,46 @@ VAULT_TOOLS = [
 
 WEB_SEARCH_TOOLS = [
     {
-        "type": "builtin_function",
+        "type": "function",
         "function": {
-            "name": "$web_search",
+            "name":        "web_search",
+            "description": (
+                "Search the internet for current information, news, or facts. "
+                "Use when you need up-to-date data not available in your training. "
+                "Returns titles, URLs, and short snippets. Use fetch_webpage to read full content."
+            ),
+            "parameters": {
+                "type":       "object",
+                "properties": {
+                    "query": {
+                        "type":        "string",
+                        "description": "Search query string.",
+                    }
+                },
+                "required": ["query"],
+            },
         },
-    }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name":        "fetch_webpage",
+            "description": (
+                "Fetch the full text content of a web page by URL. "
+                "Use after web_search to read the complete article or page."
+            ),
+            "parameters": {
+                "type":       "object",
+                "properties": {
+                    "url": {
+                        "type":        "string",
+                        "description": "The full URL of the web page to fetch.",
+                    }
+                },
+                "required": ["url"],
+            },
+        },
+    },
 ]
 
 # ── State ─────────────────────────────────────────────────────────────────────
@@ -238,6 +278,19 @@ cancel_events:  dict[str, asyncio.Event] = {}
 def _write(obj: dict) -> None:
     sys.stdout.buffer.write((json.dumps(obj, ensure_ascii=False) + "\n").encode())
     sys.stdout.buffer.flush()
+
+async def get_balance() -> dict:
+    """Fetch account balance from DeepSeek API."""
+    try:
+        import urllib.request
+        req = urllib.request.Request(
+            "https://api.deepseek.com/user/balance",
+            headers={"Authorization": f"Bearer {API_KEY}"},
+        )
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            return json.loads(resp.read().decode("utf-8"))
+    except Exception as exc:
+        return {"error": str(exc)}
 
 def send_response(req_id, result: dict) -> None:
     _write({"jsonrpc": "2.0", "id": req_id, "result": result})
@@ -356,15 +409,102 @@ def do_search_vault(cwd: str, query: str, directory: str = "") -> str:
     return "\n".join(hits) if hits else f"No matches found for '{query}'."
 
 
+# ── Web search ─────────────────────────────────────────────────────────────────
+
+async def do_web_search(query: str) -> str:
+    try:
+        from duckduckgo_search import DDGS
+    except ImportError:
+        return "Error: `duckduckgo_search` not installed. Run: pip3 install duckduckgo_search"
+    try:
+        loop = asyncio.get_event_loop()
+        def _search():
+            with DDGS() as ddgs:
+                return list(ddgs.text(query, max_results=10))
+        results = await loop.run_in_executor(None, _search)
+        if not results:
+            return "No results found."
+        lines = []
+        for i, r in enumerate(results, 1):
+            lines.append(
+                f"{i}. {r.get('title', '')}\n"
+                f"   URL: {r.get('href', '')}\n"
+                f"   {r.get('body', '')}"
+            )
+        return "\n\n".join(lines)
+    except Exception as exc:
+        return f"Search error: {exc}"
+
+
+async def do_fetch_webpage(url: str) -> str:
+    try:
+        import urllib.request
+        import html.parser
+
+        class _TextExtractor(html.parser.HTMLParser):
+            def __init__(self):
+                super().__init__()
+                self.parts: list[str] = []
+                self._skip = False
+
+            def handle_starttag(self, tag, attrs):
+                if tag in ("script", "style", "nav", "footer", "head"):
+                    self._skip = True
+
+            def handle_endtag(self, tag):
+                if tag in ("script", "style", "nav", "footer", "head"):
+                    self._skip = False
+                if tag in ("p", "div", "br", "li", "h1", "h2", "h3", "h4", "tr"):
+                    self.parts.append("\n")
+
+            def handle_data(self, data):
+                if not self._skip:
+                    self.parts.append(data)
+
+        loop = asyncio.get_event_loop()
+        def _fetch():
+            req = urllib.request.Request(
+                url,
+                headers={"User-Agent": "Mozilla/5.0 (compatible; DeepSeek-Agent/1.0)"},
+            )
+            with urllib.request.urlopen(req, timeout=15) as resp:
+                charset = "utf-8"
+                ct = resp.headers.get_content_charset()
+                if ct:
+                    charset = ct
+                return resp.read().decode(charset, errors="replace")
+
+        html_text = await loop.run_in_executor(None, _fetch)
+        parser = _TextExtractor()
+        parser.feed(html_text)
+        text = "".join(parser.parts)
+        # Collapse whitespace
+        import re
+        text = re.sub(r"\n{3,}", "\n\n", text)
+        text = re.sub(r"[ \t]+", " ", text)
+        text = text.strip()
+        # Limit to ~8000 chars to avoid context overflow
+        if len(text) > 8000:
+            text = text[:8000] + "\n\n… (truncated)"
+        return text if text else "No readable text found on page."
+    except Exception as exc:
+        return f"Fetch error: {exc}"
+
+
 # ── Tool dispatcher ────────────────────────────────────────────────────────────
 
 async def execute_tool(name: str, args: dict, session_id: str) -> str:
     cwd = session_cwds.get(session_id, str(Path.home()))
 
-    if name in ("web_search", "$web_search"):
+    if name == "web_search":
         q = args.get("query", "")
         send_chunk(session_id, f"\n\n🔍 **Searching:** {q}\n\n")
-        return ""  # DeepSeek executes $web_search server-side; no client call needed
+        return await do_web_search(q)
+
+    if name == "fetch_webpage":
+        url = args.get("url", "")
+        send_chunk(session_id, f"\n\n🌐 **Fetching:** {url}\n\n")
+        return await do_fetch_webpage(url)
 
     if name == "list_vault_files":
         directory = args.get("directory", "")
@@ -396,8 +536,15 @@ async def execute_tool(name: str, args: dict, session_id: str) -> str:
 
 # ── Prompt content extraction ─────────────────────────────────────────────────
 
-def extract_text(prompt: list) -> str:
-    parts: list[str] = []
+def build_user_content(prompt: list, allow_images: bool = True):
+    """Convert ACP prompt blocks to OpenAI message content.
+
+    Returns a plain str when there are no images (text-only models),
+    or a list of content blocks when images are present.
+    """
+    text_parts: list[str] = []
+    image_blocks: list[dict] = []
+
     for block in prompt:
         if not isinstance(block, dict):
             continue
@@ -405,14 +552,33 @@ def extract_text(prompt: list) -> str:
         if btype == "text":
             t = block.get("text", "")
             if t:
-                parts.append(t)
+                text_parts.append(t)
         elif btype == "resource":
             res  = block.get("resource", {})
             uri  = res.get("uri", "")
             text = res.get("text", "")
             if text:
-                parts.append(f"[File: {uri}]\n{text}")
-    return "\n".join(parts)
+                text_parts.append(f"[File: {uri}]\n{text}")
+        elif btype == "image" and allow_images:
+            data      = block.get("data", "")
+            mime_type = block.get("mimeType", "image/png")
+            if data:
+                image_blocks.append({
+                    "type":      "image_url",
+                    "image_url": {"url": f"data:{mime_type};base64,{data}"},
+                })
+
+    combined_text = "\n".join(text_parts)
+
+    if not image_blocks:
+        return combined_text
+
+    # Build multimodal content list
+    content: list[dict] = []
+    if combined_text:
+        content.append({"type": "text", "text": combined_text})
+    content.extend(image_blocks)
+    return content
 
 
 # ── Prompt handler ────────────────────────────────────────────────────────────
@@ -436,11 +602,12 @@ async def handle_prompt(req_id, session_id: str, prompt: list) -> None:
     model_value          = session_models.get(session_id, DEFAULT_MODEL)
     api_model, extra_kw  = resolve_model(model_value)
     use_tools            = model_supports_tools(model_value)
+    use_vision           = model_supports_vision(model_value)
 
     messages = sessions[session_id]
-    user_text = extract_text(prompt)
-    if user_text:
-        messages.append({"role": "user", "content": user_text})
+    user_content = build_user_content(prompt, allow_images=use_vision)
+    if user_content:
+        messages.append({"role": "user", "content": user_content})
 
     cancel_event = asyncio.Event()
     cancel_events[session_id] = cancel_event
@@ -500,13 +667,10 @@ async def handle_prompt(req_id, session_id: str, prompt: list) -> None:
                     for tc in delta.tool_calls:
                         idx = tc.index
                         if idx not in tool_calls_buf:
-                            tool_calls_buf[idx] = {"id": "", "name": "", "arguments": "", "type": "function"}
+                            tool_calls_buf[idx] = {"id": "", "name": "", "arguments": ""}
                         buf = tool_calls_buf[idx]
                         if tc.id:
                             buf["id"] = tc.id
-                        tc_type = getattr(tc, "type", None)
-                        if tc_type:
-                            buf["type"] = tc_type
                         if tc.function:
                             if tc.function.name:
                                 buf["name"] += tc.function.name
@@ -529,7 +693,7 @@ async def handle_prompt(req_id, session_id: str, prompt: list) -> None:
                 "tool_calls": [
                     {
                         "id":       tool_calls_buf[idx]["id"],
-                        "type":     tool_calls_buf[idx].get("type", "function"),
+                        "type":     "function",
                         "function": {
                             "name":      tool_calls_buf[idx]["name"],
                             "arguments": tool_calls_buf[idx]["arguments"],
@@ -610,7 +774,12 @@ async def main() -> None:
         if method == "initialize":
             send_response(req_id, {
                 "protocolVersion": PROTOCOL_VERSION,
-                "agentCapabilities": {"loadSession": False},
+                "agentCapabilities": {
+                    "loadSession":        False,
+                    "promptCapabilities": {
+                        "image": model_supports_vision(DEFAULT_MODEL),
+                    },
+                },
                 "agentInfo": {
                     "name":    "deepseek-acp",
                     "title":   f"DeepSeek ({DEFAULT_MODEL})",
@@ -643,6 +812,10 @@ async def main() -> None:
                     session_models.get(sid, DEFAULT_MODEL)
                 )
             })
+
+        elif method == "session/get_balance":
+            balance_info = await get_balance()
+            send_response(req_id, balance_info)
 
         elif method == "session/prompt":
             sid    = params.get("sessionId", "")
