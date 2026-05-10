@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """
-DeepSeek ACP Agent v1.3
+DeepSeek ACP Agent v1.4
 ACP (Agent Client Protocol) wrapper for DeepSeek API.
 
 Features:
   - Full DeepSeek V4 model selection in the UI (V4 Pro / V4 Flash, normal + thinking)
   - Legacy models kept for backward compatibility (deprecated Jul 2026)
-  - Web search via DuckDuckGo (no API key required)
+  - Web search via DeepSeek native server-side $web_search (no DDG, no extra round-trip)
+  - Full page fetch via fetch_webpage (urllib, no extra dependencies)
   - Vault file access: list, read, write, search Obsidian notes
 
 Usage:
@@ -224,24 +225,9 @@ VAULT_TOOLS = [
 
 WEB_SEARCH_TOOLS = [
     {
-        "type": "function",
+        "type": "builtin_function",
         "function": {
-            "name":        "web_search",
-            "description": (
-                "Search the internet for current information, news, or facts. "
-                "Use when you need up-to-date data not available in your training. "
-                "Returns titles, URLs, and short snippets. Use fetch_webpage to read full content."
-            ),
-            "parameters": {
-                "type":       "object",
-                "properties": {
-                    "query": {
-                        "type":        "string",
-                        "description": "Search query string.",
-                    }
-                },
-                "required": ["query"],
-            },
+            "name": "$web_search",
         },
     },
     {
@@ -410,30 +396,7 @@ def do_search_vault(cwd: str, query: str, directory: str = "") -> str:
 
 
 # ── Web search ─────────────────────────────────────────────────────────────────
-
-async def do_web_search(query: str) -> str:
-    try:
-        from duckduckgo_search import DDGS
-    except ImportError:
-        return "Error: `duckduckgo_search` not installed. Run: pip3 install duckduckgo_search"
-    try:
-        loop = asyncio.get_event_loop()
-        def _search():
-            with DDGS() as ddgs:
-                return list(ddgs.text(query, max_results=10))
-        results = await loop.run_in_executor(None, _search)
-        if not results:
-            return "No results found."
-        lines = []
-        for i, r in enumerate(results, 1):
-            lines.append(
-                f"{i}. {r.get('title', '')}\n"
-                f"   URL: {r.get('href', '')}\n"
-                f"   {r.get('body', '')}"
-            )
-        return "\n\n".join(lines)
-    except Exception as exc:
-        return f"Search error: {exc}"
+# $web_search is a DeepSeek server-side builtin; no client-side execution needed.
 
 
 async def do_fetch_webpage(url: str) -> str:
@@ -496,10 +459,10 @@ async def do_fetch_webpage(url: str) -> str:
 async def execute_tool(name: str, args: dict, session_id: str) -> str:
     cwd = session_cwds.get(session_id, str(Path.home()))
 
-    if name == "web_search":
+    if name in ("web_search", "$web_search"):
         q = args.get("query", "")
         send_chunk(session_id, f"\n\n🔍 **Searching:** {q}\n\n")
-        return await do_web_search(q)
+        return ""  # DeepSeek executes $web_search server-side; no client call needed
 
     if name == "fetch_webpage":
         url = args.get("url", "")

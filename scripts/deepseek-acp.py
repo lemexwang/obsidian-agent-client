@@ -1,26 +1,13 @@
-import asyncio
-import json
-import os
-import sys
-import uuid
-import urllib.request
-import subprocess
-import re
-from pathlib import Path
-try:
-    from openai import AsyncOpenAI
-except ImportError:
-    pass
-
 #!/usr/bin/env python3
 """
-DeepSeek ACP Agent v1.3
+DeepSeek ACP Agent v1.4
 ACP (Agent Client Protocol) wrapper for DeepSeek API.
 
 Features:
   - Full DeepSeek V4 model selection in the UI (V4 Pro / V4 Flash, normal + thinking)
   - Legacy models kept for backward compatibility (deprecated Jul 2026)
-  - Web search via DuckDuckGo (no API key required)
+  - Web search via DeepSeek native server-side $web_search (no DDG, no extra round-trip)
+  - Full page fetch via fetch_webpage (urllib, no extra dependencies)
   - Vault file access: list, read, write, search Obsidian notes
 
 Usage:
@@ -38,6 +25,8 @@ Obsidian Agent Client configuration (Custom Agent):
   Args:    /Users/alice/bin/deepseek-acp.py  (or the path in your plugin's scripts/)
   Env:     DEEPSEEK_API_KEY = sk-xxxx
 """
+
+import asyncio
 import json
 import os
 import sys
@@ -52,12 +41,11 @@ DEFAULT_MODEL     = os.environ.get("DEEPSEEK_MODEL", "deepseek-v4-flash")
 BASE_URL          = os.environ.get("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
 SYSTEM_PROMPT     = os.environ.get(
     "DEEPSEEK_SYSTEM_PROMPT",
-    "You are a helpful assistant with full access to the user's computer and the internet.\n"
-    "Tools: list_vault_files, read_vault_file, write_vault_file, search_vault, run_shell_command, web_search, fetch_webpage.\n"
-    "You can use 'run_shell_command' to execute arbitrary shell commands for programming, compiling, or system management.\n"
-    "You can use file tools with absolute paths to read/write any file on the system.\n"
-    "Internet research: use web_search to find relevant URLs, then fetch_webpage to read full page content.\n"
-    "If native tool calling is disabled, you MUST use tools by outputting XML: <tool_calls><tool_call name=\"tool_name\">{\"arg_name\": \"value\"}</tool_call></tool_calls>",)
+    "You are a helpful assistant with access to the Obsidian vault and the internet.\n"
+    "Vault tools: list_vault_files, read_vault_file, write_vault_file, search_vault.\n"
+    "Internet tool: web_search (use for current events, news, or up-to-date facts).\n"
+    "Always use vault tools when the user refers to their notes or asks you to modify files.",
+)
 ENABLE_WEB_SEARCH = os.environ.get("DEEPSEEK_WEB_SEARCH", "true").lower() != "false"
 MAX_TOOL_ROUNDS   = 10   # max consecutive tool-call rounds per prompt
 
@@ -145,23 +133,6 @@ def model_supports_vision(value: str) -> bool:
 # ── Tool definitions ───────────────────────────────────────────────────────────
 
 VAULT_TOOLS = [
-    {
-        "type": "function",
-        "function": {
-            "name":        "run_shell_command",
-            "description": "Execute a shell command on the user's system and return the output. Useful for running scripts, compiling, or managing files globally.",
-            "parameters": {
-                "type":       "object",
-                "properties": {
-                    "command": {
-                        "type":        "string",
-                        "description": "The exact bash command to execute.",
-                    },
-                },
-                "required": ["command"],
-            },
-        },
-    },
     {
         "type": "function",
         "function": {
@@ -254,24 +225,9 @@ VAULT_TOOLS = [
 
 WEB_SEARCH_TOOLS = [
     {
-        "type": "function",
+        "type": "builtin_function",
         "function": {
-            "name":        "web_search",
-            "description": (
-                "Search the internet for current information, news, or facts. "
-                "Use when you need up-to-date data not available in your training. "
-                "Returns titles, URLs, and short snippets. Use fetch_webpage to read full content."
-            ),
-            "parameters": {
-                "type":       "object",
-                "properties": {
-                    "query": {
-                        "type":        "string",
-                        "description": "Search query string.",
-                    }
-                },
-                "required": ["query"],
-            },
+            "name": "$web_search",
         },
     },
     {
@@ -309,6 +265,19 @@ def _write(obj: dict) -> None:
     sys.stdout.buffer.write((json.dumps(obj, ensure_ascii=False) + "\n").encode())
     sys.stdout.buffer.flush()
 
+async def get_balance() -> dict:
+    """Fetch account balance from DeepSeek API."""
+    try:
+        import urllib.request
+        req = urllib.request.Request(
+            "https://api.deepseek.com/user/balance",
+            headers={"Authorization": f"Bearer {API_KEY}"},
+        )
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            return json.loads(resp.read().decode("utf-8"))
+    except Exception as exc:
+        return {"error": str(exc)}
+
 def send_response(req_id, result: dict) -> None:
     _write({"jsonrpc": "2.0", "id": req_id, "result": result})
 
@@ -342,10 +311,14 @@ _SKIP = {".obsidian", ".git", "node_modules", "__pycache__", ".trash", ".DS_Stor
 
 
 def _safe_path(cwd: str, rel: str) -> Path | None:
-    """Resolve rel anywhere on the system."""
+    """Resolve rel inside the vault; returns None if it escapes the vault root."""
     vault = Path(cwd).resolve()
     p = (vault / rel).resolve() if not Path(rel).is_absolute() else Path(rel).resolve()
-    return p
+    try:
+        p.relative_to(vault)
+        return p
+    except ValueError:
+        return None
 
 
 def do_list_vault_files(cwd: str, directory: str = "", extension: str = "") -> str:
@@ -422,64 +395,13 @@ def do_search_vault(cwd: str, query: str, directory: str = "") -> str:
     return "\n".join(hits) if hits else f"No matches found for '{query}'."
 
 
-
-def do_run_shell_command(cwd: str, command: str) -> str:
-    try:
-        result = subprocess.run(command, shell=True, cwd=cwd, text=True, capture_output=True, timeout=60)
-        out = result.stdout
-        if result.stderr:
-            out += "\n--- STDERR ---\n" + result.stderr
-        if not out.strip():
-            out = "(Command finished with no output)"
-        return out
-    except Exception as exc:
-        return f"Error executing command: {exc}"
-
 # ── Web search ─────────────────────────────────────────────────────────────────
-
-async def do_web_search(query: str) -> str:
-    
-    tavily_key = os.environ.get("TAVILY_API_KEY")
-    if not tavily_key:
-        env_path = Path("/Users/alice/Library/Mobile Documents/iCloud~md~obsidian/Documents/Lemex_Vault/.claude/.tavily_env")
-        if env_path.exists():
-            for line in env_path.read_text().splitlines():
-                if line.startswith("TAVILY_API_KEY="):
-                    tavily_key = line.split("=", 1)[1].strip()
-                    break
-
-    if not tavily_key:
-        tavily_key = "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"
-
-    try:
-        loop = asyncio.get_event_loop()
-        def _search():
-            req = urllib.request.Request(
-                "https://api.tavily.com/search",
-                data=json.dumps({"api_key": tavily_key, "query": query, "search_depth": "basic", "max_results": 10}).encode("utf-8"),
-                headers={"Content-Type": "application/json"}
-            )
-            with urllib.request.urlopen(req) as response:
-                return json.loads(response.read().decode("utf-8"))
-        
-        data = await loop.run_in_executor(None, _search)
-        results = data.get("results", [])
-        if not results:
-            return "No results found."
-        
-        lines = []
-        for i, r in enumerate(results, 1):
-            title = r.get("title", "")
-            url = r.get("url", "")
-            snippet = r.get("content", "")
-            lines.append(f"{i}. {title}\n   {url}\n   {snippet}")
-        return "\n\n".join(lines)
-    except Exception as exc:
-        return f"Search error: {exc}"
+# $web_search is a DeepSeek server-side builtin; no client-side execution needed.
 
 
 async def do_fetch_webpage(url: str) -> str:
     try:
+        import urllib.request
         import html.parser
 
         class _TextExtractor(html.parser.HTMLParser):
@@ -519,9 +441,12 @@ async def do_fetch_webpage(url: str) -> str:
         parser = _TextExtractor()
         parser.feed(html_text)
         text = "".join(parser.parts)
+        # Collapse whitespace
+        import re
         text = re.sub(r"\n{3,}", "\n\n", text)
         text = re.sub(r"[ \t]+", " ", text)
         text = text.strip()
+        # Limit to ~8000 chars to avoid context overflow
         if len(text) > 8000:
             text = text[:8000] + "\n\n… (truncated)"
         return text if text else "No readable text found on page."
@@ -534,16 +459,10 @@ async def do_fetch_webpage(url: str) -> str:
 async def execute_tool(name: str, args: dict, session_id: str) -> str:
     cwd = session_cwds.get(session_id, str(Path.home()))
 
-
-    if name == "run_shell_command":
-        cmd = args.get("command", "")
-        send_chunk(session_id, f"\n\n💻 **Executing:** {cmd}\n\n")
-        return do_run_shell_command(cwd, cmd)
-
-    if name == "web_search":
+    if name in ("web_search", "$web_search"):
         q = args.get("query", "")
         send_chunk(session_id, f"\n\n🔍 **Searching:** {q}\n\n")
-        return await do_web_search(q)
+        return ""  # DeepSeek executes $web_search server-side; no client call needed
 
     if name == "fetch_webpage":
         url = args.get("url", "")
@@ -583,7 +502,7 @@ async def execute_tool(name: str, args: dict, session_id: str) -> str:
 def build_user_content(prompt: list, allow_images: bool = True):
     """Convert ACP prompt blocks to OpenAI message content.
 
-    Returns a plain str when there are no images,
+    Returns a plain str when there are no images (text-only models),
     or a list of content blocks when images are present.
     """
     text_parts: list[str] = []
@@ -603,13 +522,6 @@ def build_user_content(prompt: list, allow_images: bool = True):
             text = res.get("text", "")
             if text:
                 text_parts.append(f"[File: {uri}]\n{text}")
-        elif btype == "resource_link":
-            uri  = block.get("uri", "")
-            name = block.get("name", uri)
-            text_parts.append(
-                f"[Attached File: {name}] (Path: {uri})\n"
-                "Use the 'read_vault_file' tool with this path to read its content."
-            )
         elif btype == "image" and allow_images:
             data      = block.get("data", "")
             mime_type = block.get("mimeType", "image/png")
@@ -624,6 +536,7 @@ def build_user_content(prompt: list, allow_images: bool = True):
     if not image_blocks:
         return combined_text
 
+    # Build multimodal content list
     content: list[dict] = []
     if combined_text:
         content.append({"type": "text", "text": combined_text})
@@ -640,7 +553,7 @@ async def handle_prompt(req_id, session_id: str, prompt: list) -> None:
         return
 
     try:
-        import openai
+        from openai import AsyncOpenAI
     except ImportError:
         send_chunk(session_id, "Error: `openai` not installed. Run: pip3 install openai")
         send_response(req_id, {"stopReason": "end_turn"})
@@ -730,41 +643,6 @@ async def handle_prompt(req_id, session_id: str, prompt: list) -> None:
             if cancelled:
                 break
 
-            if not tool_calls_buf and "<tool_call" in round_content:
-                xml_calls = re.findall(r'<tool_call\s+name="([^"]+)">\s*(.*?)\s*</tool_call>', round_content, re.DOTALL)
-                for i, (t_name, t_args_str) in enumerate(xml_calls):
-                    args = {}
-                    t_args_str = t_args_str.strip()
-                    if t_args_str.startswith("{") and t_args_str.endswith("}"):
-                        try:
-                            args = json.loads(t_args_str)
-                        except:
-                            pass
-                    if not args:
-                        if t_name == "run_shell_command":
-                            args = {"command": t_args_str}
-                        elif t_name == "web_search":
-                            args = {"query": t_args_str}
-                        elif t_name == "fetch_webpage":
-                            args = {"url": t_args_str}
-                        elif t_name == "read_vault_file":
-                            args = {"path": t_args_str}
-                        elif t_name == "search_vault":
-                            args = {"query": t_args_str}
-                        elif t_name == "write_vault_file":
-                            args = {"path": "xml_tool_error.txt", "content": t_args_str}
-                        else:
-                            args = {"query": t_args_str}
-                    tool_calls_buf[i] = {
-                        "id": f"call_xml_{uuid.uuid4().hex[:8]}",
-                        "name": t_name,
-                        "arguments": json.dumps(args)
-                    }
-                if xml_calls:
-                    round_content = re.sub(r'<tool_calls>.*?</tool_calls>', '', round_content, flags=re.DOTALL)
-                    round_content = re.sub(r'<tool_call.*?</tool_call>', '', round_content, flags=re.DOTALL)
-                    round_content = round_content.strip()
-
             # No tool calls → final response
             if not tool_calls_buf:
                 final_content   = round_content
@@ -829,14 +707,22 @@ async def handle_prompt(req_id, session_id: str, prompt: list) -> None:
 
 async def main() -> None:
     loop = asyncio.get_event_loop()
+    debug_log = Path("/tmp/deepseek-acp-debug.log")
+    with debug_log.open("a", encoding="utf-8") as f:
+        f.write(f"\n--- Starting session {uuid.uuid4().hex} ---\n")
+        f.flush()
 
     while True:
-        raw = await loop.run_in_executor(None, sys.stdin.readline)
-        if not raw:
+        raw_bytes = await loop.run_in_executor(None, sys.stdin.buffer.readline)
+        if not raw_bytes:
             break
 
-        line = raw.strip()
-        if not line:
+        line = raw_bytes.decode("utf-8")
+        with debug_log.open("a", encoding="utf-8") as f:
+            f.write(f"RECV: {line.strip()}\n")
+            f.flush()
+
+        if not line.strip():
             continue
 
         try:
@@ -853,7 +739,9 @@ async def main() -> None:
                 "protocolVersion": PROTOCOL_VERSION,
                 "agentCapabilities": {
                     "loadSession":        False,
-                    "promptCapabilities": {"image": model_supports_vision(DEFAULT_MODEL)},
+                    "promptCapabilities": {
+                        "image": model_supports_vision(DEFAULT_MODEL),
+                    },
                 },
                 "agentInfo": {
                     "name":    "deepseek-acp",
@@ -887,6 +775,10 @@ async def main() -> None:
                     session_models.get(sid, DEFAULT_MODEL)
                 )
             })
+
+        elif method == "session/get_balance":
+            balance_info = await get_balance()
+            send_response(req_id, balance_info)
 
         elif method == "session/prompt":
             sid    = params.get("sessionId", "")
