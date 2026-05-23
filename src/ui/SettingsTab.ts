@@ -1221,15 +1221,15 @@ export class AgentClientSettingTab extends PluginSettingTab {
 	 */
 	private addInstallHint(containerEl: HTMLElement, npmPackage: string): void {
 		const command = `npm install -g ${npmPackage}@latest`;
-		const frag = document.createDocumentFragment();
-		frag.append("Not installed? Run in terminal: ");
-		frag.appendChild(document.createElement("code")).textContent = command;
+		const frag = createFragment();
+		frag.appendText("Not installed? Run in terminal: ");
+		frag.createEl("code", { text: command });
 		new Setting(containerEl).setDesc(frag).addButton((btn) => {
 			btn.setButtonText("Copy").onClick(() => {
 				void navigator.clipboard.writeText(command).then(
 					() => {
 						btn.setButtonText("Copied!");
-						setTimeout(() => {
+						window.setTimeout(() => {
 							btn.setButtonText("Copy");
 						}, 1500);
 					},
@@ -1272,14 +1272,14 @@ export class AgentClientSettingTab extends PluginSettingTab {
 							this.display();
 						} else {
 							btn.setButtonText("Not found");
-							setTimeout(() => {
+							window.setTimeout(() => {
 								btn.setButtonText("Auto-detect");
 								btn.setDisabled(false);
 							}, 2000);
 						}
 					} catch {
 						btn.setButtonText("Error");
-						setTimeout(() => {
+						window.setTimeout(() => {
 							btn.setButtonText("Auto-detect");
 							btn.setDisabled(false);
 						}, 2000);

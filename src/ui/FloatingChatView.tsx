@@ -25,6 +25,16 @@ import { useSettings } from "../hooks/useSettings";
 // Helpers
 // ============================================================
 
+function clampSize(
+	width: number,
+	height: number,
+): { width: number; height: number } {
+	return {
+		width: Math.min(width, window.innerWidth),
+		height: Math.min(height, window.innerHeight),
+	};
+}
+
 function clampPosition(
 	x: number,
 	y: number,
@@ -35,6 +45,17 @@ function clampPosition(
 		x: Math.max(0, Math.min(x, window.innerWidth - width)),
 		y: Math.max(0, Math.min(y, window.innerHeight - height)),
 	};
+}
+
+function fitToViewport(
+	x: number,
+	y: number,
+	width: number,
+	height: number,
+): { position: { x: number; y: number }; size: { width: number; height: number } } {
+	const size = clampSize(width, height);
+	const position = clampPosition(x, y, size.width, size.height);
+	return { position, size };
 }
 
 // ============================================================
@@ -62,7 +83,7 @@ export class FloatingViewContainer implements IChatViewContainer {
 		this.plugin = plugin;
 		// viewId format: "floating-chat-{instanceId}" to match adapter key
 		this.viewId = `floating-chat-${instanceId}`;
-		this.containerEl = document.body.createDiv({
+		this.containerEl = activeDocument.body.createDiv({
 			cls: "agent-client-floating-view-root",
 		});
 	}
@@ -136,7 +157,7 @@ export class FloatingViewContainer implements IChatViewContainer {
 			this.setExpanded?.(true);
 		}
 		// Focus after next render (expansion may need a frame)
-		requestAnimationFrame(() => {
+		window.requestAnimationFrame(() => {
 			const textarea = this.containerRefEl?.querySelector(
 				"textarea.agent-client-chat-input-textarea",
 			);
@@ -149,7 +170,7 @@ export class FloatingViewContainer implements IChatViewContainer {
 	hasFocus(): boolean {
 		return (
 			this.isExpandedState &&
-			(this.containerRefEl?.contains(document.activeElement) ?? false)
+			(this.containerRefEl?.contains(activeDocument.activeElement) ?? false)
 		);
 	}
 
@@ -298,6 +319,36 @@ function FloatingChatComponent({
 		onExpandedChange?.(isExpanded);
 	}, [isExpanded, onExpandedChange]);
 
+	// Keep refs up-to-date for viewport resize handler
+	const positionRef = useRef(position);
+	const sizeRef = useRef(size);
+	useEffect(() => { positionRef.current = position; }, [position]);
+	useEffect(() => { sizeRef.current = size; }, [size]);
+
+	// Fit to viewport on expand, and re-fit whenever the viewport resizes
+	useEffect(() => {
+		if (!isExpanded) return;
+
+		const adjust = () => {
+			const { position: newPos, size: newSize } = fitToViewport(
+				positionRef.current.x,
+				positionRef.current.y,
+				sizeRef.current.width,
+				sizeRef.current.height,
+			);
+			if (newSize.width !== sizeRef.current.width || newSize.height !== sizeRef.current.height) {
+				setSize(newSize);
+			}
+			if (newPos.x !== positionRef.current.x || newPos.y !== positionRef.current.y) {
+				setPosition(newPos);
+			}
+		};
+
+		adjust();
+		window.addEventListener("resize", adjust);
+		return () => window.removeEventListener("resize", adjust);
+	}, [isExpanded]);
+
 	// Notify parent of container ref
 	useEffect(() => {
 		onContainerRef?.(containerRef.current);
@@ -360,10 +411,10 @@ function FloatingChatComponent({
 			}
 		};
 
-		const timer = setTimeout(() => {
+		const timer = window.setTimeout(() => {
 			void saveSize();
-		}, 500); // Debounce save
-		return () => clearTimeout(timer);
+		}, 500);
+		return () => window.clearTimeout(timer);
 	}, [size, plugin, settings.floatingWindowSize]);
 
 	// Save position to settings
@@ -381,10 +432,10 @@ function FloatingChatComponent({
 			}
 		};
 
-		const timer = setTimeout(() => {
+		const timer = window.setTimeout(() => {
 			void savePosition();
-		}, 500); // Debounce save
-		return () => clearTimeout(timer);
+		}, 500);
+		return () => window.clearTimeout(timer);
 	}, [position, plugin, settings.floatingWindowPosition]);
 
 	// ============================================================
