@@ -480,7 +480,7 @@ export class AcpClient {
 				promptResult.stopReason === "end_turn"
 			) {
 				// Allow pending stderr data events to flush before checking
-				await new Promise((r) => setTimeout(r, 100));
+				await new Promise((r) => window.setTimeout(r, 100));
 
 				const stderrHint = extractStderrErrorHint(this.recentStderr);
 				if (stderrHint) {
@@ -509,13 +509,15 @@ export class AcpClient {
 	 * Cancel the current operation in a session.
 	 */
 	async cancel(sessionId: string): Promise<void> {
+		if (!this.connection) {
+			this.cancelAllOperations();
+			return;
+		}
 		try {
-			const connection = this.requireConnection();
-
 			this.logger.log(
 				"[AcpClient] Sending session/cancel notification...",
 			);
-			await connection.cancel({ sessionId });
+			await this.connection.cancel({ sessionId });
 			this.logger.log(
 				"[AcpClient] Cancellation request sent successfully",
 			);

@@ -161,9 +161,7 @@ export function useAgentMessages(
 			pendingUpdatesRef.current.push(update);
 			if (!flushScheduledRef.current) {
 				flushScheduledRef.current = true;
-				console.log(`[DEBUG:enqueueUpdate] RAF scheduled @ ${ts.toFixed(0)}`);
-				requestAnimationFrame(flushPendingUpdates);
-			}
+window.requestAnimationFrame(flushPendingUpdates);			}
 		},
 		[flushPendingUpdates],
 	);
@@ -265,7 +263,7 @@ export function useAgentMessages(
 				try { await sendPromiseRef.current; } catch { /* ignore */ }
 			}
 
-			const currentSessionId = session.sessionId as string;
+			const currentSessionId = session.sessionId;
 			const generation = ++generationRef.current;
 			const settings = settingsAccess.getSnapshot();
 
@@ -350,12 +348,7 @@ export function useAgentMessages(
 					);
 
 					// Discard results if a newer send has started
-					if (generationRef.current !== generation) {
-						console.log("[DEBUG:sendMessage] result DISCARDED (stale gen)");
-						return;
-					}
-
-					console.log(`[DEBUG:sendMessage] agent finished, success=${result.success}`);
+					if (generationRef.current !== generation) return;
 					if (result.success) {
 						setIsSending(false);
 						setLastUserMessage(null);

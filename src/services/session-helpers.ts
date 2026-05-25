@@ -10,7 +10,7 @@ import type {
 	GeminiAgentSettings,
 
 } from "../types/agent";
-import type { ChatSession, SessionState } from "../types/session";
+import type { ChatSession } from "../types/session";
 import { toAgentConfig } from "./settings-normalizer";
 
 // ============================================================================
@@ -156,7 +156,7 @@ export function createInitialSession(
 ): ChatSession {
 	return {
 		sessionId: null,
-		state: "disconnected" as SessionState,
+		state: "disconnected",
 		agentId,
 		agentDisplayName,
 		authMethods: [],
