@@ -161,7 +161,8 @@ export function useAgentMessages(
 			pendingUpdatesRef.current.push(update);
 			if (!flushScheduledRef.current) {
 				flushScheduledRef.current = true;
-window.requestAnimationFrame(flushPendingUpdates);			}
+				window.requestAnimationFrame(flushPendingUpdates);
+			}
 		},
 		[flushPendingUpdates],
 	);
@@ -349,6 +350,8 @@ window.requestAnimationFrame(flushPendingUpdates);			}
 
 					// Discard results if a newer send has started
 					if (generationRef.current !== generation) return;
+
+
 					if (result.success) {
 						setIsSending(false);
 						setLastUserMessage(null);

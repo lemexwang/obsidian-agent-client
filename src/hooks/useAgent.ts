@@ -92,6 +92,10 @@ export interface UseAgentReturn {
 	setMessagesFromLocal: (localMessages: ChatMessage[]) => void;
 	clearError: () => void;
 	setIgnoreUpdates: (ignore: boolean) => void;
+	/** Discard any pending RAF updates and reset streaming state (call after stop/cancel). */
+	clearPendingUpdates: () => void;
+
+	// Permission
 	activePermission: ActivePermission | null;
 	hasActivePermission: boolean;
 	approvePermission: (requestId: string, optionId: string) => Promise<void>;
