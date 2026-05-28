@@ -499,6 +499,8 @@ export class AgentClientSettingTab extends PluginSettingTab {
 
 		this.renderClaudeSettings(containerEl);
 
+		this.renderCodexSettings(containerEl);
+
 		this.renderGeminiSettings(containerEl);
 
 		new Setting(containerEl).setName("Custom agents").setHeading();
@@ -773,7 +775,11 @@ export class AgentClientSettingTab extends PluginSettingTab {
 				this.plugin.settings.claude.displayName ||
 					this.plugin.settings.claude.id,
 			),
-
+			toOption(
+				this.plugin.settings.codex.id,
+				this.plugin.settings.codex.displayName ||
+					this.plugin.settings.codex.id,
+			),
 			toOption(
 				this.plugin.settings.gemini.id,
 				this.plugin.settings.gemini.displayName ||

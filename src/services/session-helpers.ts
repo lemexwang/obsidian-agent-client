@@ -7,8 +7,8 @@ import type { AgentClientPluginSettings } from "../plugin";
 import type {
 	BaseAgentSettings,
 	ClaudeAgentSettings,
+	CodexAgentSettings,
 	GeminiAgentSettings,
-
 } from "../types/agent";
 import type { ChatSession } from "../types/session";
 import { toAgentConfig } from "./settings-normalizer";
@@ -50,7 +50,10 @@ export function getAvailableAgentsFromSettings(
 			id: settings.claude.id,
 			displayName: settings.claude.displayName || settings.claude.id,
 		},
-
+		{
+			id: settings.codex.id,
+			displayName: settings.codex.displayName || settings.codex.id,
+		},
 		{
 			id: settings.gemini.id,
 			displayName: settings.gemini.displayName || settings.gemini.id,
@@ -97,6 +100,11 @@ export function findAgentSettings(
 	if (agentId === settings.gemini.id) {
 		return settings.gemini;
 	}
+
+	if (agentId === settings.codex.id) {
+		return settings.codex;
+	}
+
 	// Search in custom agents
 	const customAgent = settings.customAgents.find(
 		(agent) => agent.id === agentId,
@@ -118,22 +126,45 @@ export function buildAgentConfigWithApiKey(
 	// Add API keys to environment for Claude and Gemini
 	if (agentId === settings.claude.id) {
 		const claudeSettings = agentSettings as ClaudeAgentSettings;
+		const apiKey = claudeSettings.apiKey.trim();
+		if (!apiKey) {
+			return baseConfig;
+		}
 		return {
 			...baseConfig,
 			env: {
 				...baseConfig.env,
-				ANTHROPIC_API_KEY: claudeSettings.apiKey,
+				ANTHROPIC_API_KEY: apiKey,
 			},
 		};
 	}
 
 	if (agentId === settings.gemini.id) {
 		const geminiSettings = agentSettings as GeminiAgentSettings;
+		const apiKey = geminiSettings.apiKey.trim();
+		if (!apiKey) {
+			return baseConfig;
+		}
 		return {
 			...baseConfig,
 			env: {
 				...baseConfig.env,
-				GEMINI_API_KEY: geminiSettings.apiKey,
+				GEMINI_API_KEY: apiKey,
+			},
+		};
+	}
+
+	if (agentId === settings.codex.id) {
+		const codexSettings = agentSettings as CodexAgentSettings;
+		const apiKey = codexSettings.apiKey.trim();
+		if (!apiKey) {
+			return baseConfig;
+		}
+		return {
+			...baseConfig,
+			env: {
+				...baseConfig.env,
+				OPENAI_API_KEY: apiKey,
 			},
 		};
 	}

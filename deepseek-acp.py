@@ -17,6 +17,7 @@ Environment variables (set in Obsidian Agent Client plugin settings):
   DEEPSEEK_API_KEY         Required. Your DeepSeek API key.
   DEEPSEEK_MODEL           Optional. Default model. Default: deepseek-v4-flash
   DEEPSEEK_BASE_URL        Optional. Default: https://api.deepseek.com
+  DEEPSEEK_REASONING_EFFORT Optional. Thinking effort: high or max. Default: high
   DEEPSEEK_SYSTEM_PROMPT   Optional. Override the default system prompt.
   DEEPSEEK_WEB_SEARCH      Optional. Set to 'false' to disable web search. Default: true
 
@@ -39,6 +40,8 @@ PROTOCOL_VERSION  = 1
 API_KEY           = os.environ.get("DEEPSEEK_API_KEY", "")
 DEFAULT_MODEL     = os.environ.get("DEEPSEEK_MODEL", "deepseek-v4-flash")
 BASE_URL          = os.environ.get("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
+_RAW_REASONING_EFFORT = os.environ.get("DEEPSEEK_REASONING_EFFORT", "high").lower()
+REASONING_EFFORT = _RAW_REASONING_EFFORT if _RAW_REASONING_EFFORT in {"high", "max"} else "high"
 SYSTEM_PROMPT     = os.environ.get(
     "DEEPSEEK_SYSTEM_PROMPT",
     "You are a helpful assistant with access to the Obsidian vault and the internet.\n"
@@ -112,22 +115,27 @@ def build_config_options(current_model: str) -> list:
 
 def resolve_model(value: str) -> tuple[str, dict]:
     """Returns (api_model_id, extra_api_kwargs).
-    Thinking variants pass enable_thinking=True in extra_body.
+    DeepSeek V4 thinking is controlled through extra_body.thinking.
     """
-    if value.endswith(":thinking"):
+    if value.endswith(":thinking") or value == "deepseek-reasoner":
         base = value[:-9]
-        return base, {"extra_body": {"enable_thinking": True}}
-    return value, {}
+        if value == "deepseek-reasoner":
+            base = value
+        return base, {
+            "reasoning_effort": REASONING_EFFORT,
+            "extra_body": {"thinking": {"type": "enabled"}},
+        }
+    return value, {"extra_body": {"thinking": {"type": "disabled"}}}
 
 
 def model_supports_tools(value: str) -> bool:
-    """Thinking mode and deepseek-reasoner do not support function calling."""
-    return not (value.endswith(":thinking") or value == "deepseek-reasoner")
+    """DeepSeek V4 thinking mode supports function calling."""
+    return True
 
 
 def model_supports_vision(value: str) -> bool:
-    """Thinking mode and deepseek-reasoner do not support image input."""
-    return not (value.endswith(":thinking") or value == "deepseek-reasoner")
+    """DeepSeek V4 API image input is not reliable enough to advertise."""
+    return False
 
 
 # ── Tool definitions ───────────────────────────────────────────────────────────

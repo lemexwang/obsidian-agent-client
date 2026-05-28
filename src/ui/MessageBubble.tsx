@@ -313,60 +313,136 @@ function markdownToHtml(markdown: string): string {
 
 	// 1. Symbol & LaTeX Replacements
 	const symbolMap: Record<string, string> = {
-		"\\rightarrow": "→", "\\leftarrow": "←", "\\leftrightarrow": "↔",
-		"\\Rightarrow": "⇒", "\\Leftarrow": "⇐", "\\Leftrightarrow": "⇔",
-		"\\longrightarrow": "⟶", "\\longleftarrow": "⟵",
-		"\\Longrightarrow": "⟹", "\\Longleftarrow": "⟸",
-		"\\uparrow": "↑", "\\downarrow": "↓", "\\updownarrow": "↕",
-		"\\mapsto": "↦", "\\rightleftharpoons": "⇌", "\\to": "→",
-		"\\approx": "≈", "\\neq": "≠", "\\equiv": "≡",
-		"\\pm": "±", "\\mp": "∓",
-		"\\times": "×", "\\div": "÷", "\\cdot": "·",
-		"\\leq": "≤", "\\geq": "≥", "\\ll": "≪", "\\gg": "≫",
-		"\\propto": "∝", "\\sim": "∼", "\\simeq": "≃",
-		"\\infty": "∞", "\\partial": "∂", "\\nabla": "∇",
-		"\\sum": "∑", "\\prod": "∏", "\\int": "∫", "\\oint": "∮",
-		"\\alpha": "α", "\\beta": "β", "\\gamma": "γ", "\\delta": "δ",
-		"\\epsilon": "ε", "\\varepsilon": "ε", "\\zeta": "ζ", "\\eta": "η",
-		"\\theta": "θ", "\\vartheta": "ϑ", "\\iota": "ι", "\\kappa": "κ",
-		"\\lambda": "λ", "\\mu": "μ", "\\nu": "ν", "\\xi": "ξ",
-		"\\pi": "π", "\\varpi": "ϖ", "\\rho": "ρ", "\\varrho": "ϱ",
-		"\\sigma": "σ", "\\varsigma": "ς", "\\tau": "τ", "\\upsilon": "υ",
-		"\\phi": "φ", "\\varphi": "φ", "\\chi": "χ", "\\psi": "ψ", "\\omega": "ω",
-		"\\Gamma": "Γ", "\\Delta": "Δ", "\\Theta": "Θ",
-		"\\Lambda": "Λ", "\\Xi": "Ξ", "\\Pi": "Π",
-		"\\Sigma": "Σ", "\\Upsilon": "Υ", "\\Phi": "Φ",
-		"\\Psi": "Ψ", "\\Omega": "Ω",
-		"\\subset": "⊂", "\\supset": "⊃", "\\subseteq": "⊆",
-		"\\supseteq": "⊇", "\\in": "∈", "\\notin": "∉", "\\ni": "∋",
-		"\\cup": "∪", "\\cap": "∩", "\\emptyset": "∅",
-		"\\forall": "∀", "\\exists": "∃", "\\neg": "¬",
-		"\\land": "∧", "\\lor": "∨",
-		"\\therefore": "∴", "\\because": "∵",
-		"\\angle": "∠", "\\perp": "⊥", "\\parallel": "∥",
-		"\\ldots": "…", "\\cdots": "⋯",
-		"\\degree": "°", "\\bigcirc": "○",
-		"\\triangle": "△", "\\square": "□",
+		"\\rightarrow": "→",
+		"\\leftarrow": "←",
+		"\\leftrightarrow": "↔",
+		"\\Rightarrow": "⇒",
+		"\\Leftarrow": "⇐",
+		"\\Leftrightarrow": "⇔",
+		"\\longrightarrow": "⟶",
+		"\\longleftarrow": "⟵",
+		"\\Longrightarrow": "⟹",
+		"\\Longleftarrow": "⟸",
+		"\\uparrow": "↑",
+		"\\downarrow": "↓",
+		"\\updownarrow": "↕",
+		"\\mapsto": "↦",
+		"\\rightleftharpoons": "⇌",
+		"\\to": "→",
+		"\\approx": "≈",
+		"\\neq": "≠",
+		"\\equiv": "≡",
+		"\\pm": "±",
+		"\\mp": "∓",
+		"\\times": "×",
+		"\\div": "÷",
+		"\\cdot": "·",
+		"\\leq": "≤",
+		"\\geq": "≥",
+		"\\ll": "≪",
+		"\\gg": "≫",
+		"\\propto": "∝",
+		"\\sim": "∼",
+		"\\simeq": "≃",
+		"\\infty": "∞",
+		"\\partial": "∂",
+		"\\nabla": "∇",
+		"\\sum": "∑",
+		"\\prod": "∏",
+		"\\int": "∫",
+		"\\oint": "∮",
+		"\\alpha": "α",
+		"\\beta": "β",
+		"\\gamma": "γ",
+		"\\delta": "δ",
+		"\\epsilon": "ε",
+		"\\varepsilon": "ε",
+		"\\zeta": "ζ",
+		"\\eta": "η",
+		"\\theta": "θ",
+		"\\vartheta": "ϑ",
+		"\\iota": "ι",
+		"\\kappa": "κ",
+		"\\lambda": "λ",
+		"\\mu": "μ",
+		"\\nu": "ν",
+		"\\xi": "ξ",
+		"\\pi": "π",
+		"\\varpi": "ϖ",
+		"\\rho": "ρ",
+		"\\varrho": "ϱ",
+		"\\sigma": "σ",
+		"\\varsigma": "ς",
+		"\\tau": "τ",
+		"\\upsilon": "υ",
+		"\\phi": "φ",
+		"\\varphi": "φ",
+		"\\chi": "χ",
+		"\\psi": "ψ",
+		"\\omega": "ω",
+		"\\Gamma": "Γ",
+		"\\Delta": "Δ",
+		"\\Theta": "Θ",
+		"\\Lambda": "Λ",
+		"\\Xi": "Ξ",
+		"\\Pi": "Π",
+		"\\Sigma": "Σ",
+		"\\Upsilon": "Υ",
+		"\\Phi": "Φ",
+		"\\Psi": "Ψ",
+		"\\Omega": "Ω",
+		"\\subset": "⊂",
+		"\\supset": "⊃",
+		"\\subseteq": "⊆",
+		"\\supseteq": "⊇",
+		"\\in": "∈",
+		"\\notin": "∉",
+		"\\ni": "∋",
+		"\\cup": "∪",
+		"\\cap": "∩",
+		"\\emptyset": "∅",
+		"\\forall": "∀",
+		"\\exists": "∃",
+		"\\neg": "¬",
+		"\\land": "∧",
+		"\\lor": "∨",
+		"\\therefore": "∴",
+		"\\because": "∵",
+		"\\angle": "∠",
+		"\\perp": "⊥",
+		"\\parallel": "∥",
+		"\\ldots": "…",
+		"\\cdots": "⋯",
+		"\\degree": "°",
+		"\\bigcirc": "○",
+		"\\triangle": "△",
+		"\\square": "□",
 	};
 
-	html = html.replace(/\$\s*([^\$]+?)\s*\$/g, (_, content) => {
-		if (symbolMap[content]) {
-			return symbolMap[content];
-		}
-		return content;
-	});
+	html = html.replace(
+		/\$\s*([^$]+?)\s*\$/g,
+		(_match: string, content: string) => {
+			if (symbolMap[content]) {
+				return symbolMap[content];
+			}
+			return content;
+		},
+	);
 
 	// Code blocks: ```lang\ncode\n```
-	html = html.replace(/```(?:\w+)?\n([\s\S]+?)\n```/g, (_, code) => {
-		const escapedCode = code
-			.replace(/&/g, "&amp;")
-			.replace(/</g, "&lt;")
-			.replace(/>/g, "&gt;");
-		return `<pre style="background-color:#f6f8fa;color:#000000;padding:16px;border-radius:6px;font-family:ui-monospace,SFMono-Regular,SF Mono,Menlo,Consolas,Liberation Mono,monospace;font-size:85%; line-height:1.45;mso-line-height-rule:exactly;overflow:auto;margin:8px 0;border:1px solid #e1e4e8;white-space:pre-wrap;word-wrap:break-word;"><code style="color:#000000;line-height:1.45;mso-line-height-rule:exactly;">${escapedCode}</code></pre>`;
-	});
+	html = html.replace(
+		/```(?:\w+)?\n([\s\S]+?)\n```/g,
+		(_match: string, code: string) => {
+			const escapedCode = code
+				.replace(/&/g, "&amp;")
+				.replace(/</g, "&lt;")
+				.replace(/>/g, "&gt;");
+			return `<pre style="background-color:#f6f8fa;color:#000000;padding:16px;border-radius:6px;font-family:ui-monospace,SFMono-Regular,SF Mono,Menlo,Consolas,Liberation Mono,monospace;font-size:85%; line-height:1.45;mso-line-height-rule:exactly;overflow:auto;margin:8px 0;border:1px solid #e1e4e8;white-space:pre-wrap;word-wrap:break-word;"><code style="color:#000000;line-height:1.45;mso-line-height-rule:exactly;">${escapedCode}</code></pre>`;
+		},
+	);
 
 	// Inline code: `code`
-	html = html.replace(/`([^`]+)`/g, (_, code) => {
+	html = html.replace(/`([^`]+)`/g, (_match: string, code: string) => {
 		return `<code style="background-color: rgba(175,184,193,0.2); color: #000000; padding:0.2em 0.4em;border-radius:6px;font-family:ui-monospace,SFMono-Regular,SF Mono,Menlo,Consolas,Liberation Mono,monospace;font-size:85%;line-height:1.45;mso-line-height-rule:exactly;">${code}</code>`;
 	});
 
@@ -377,20 +453,47 @@ function markdownToHtml(markdown: string): string {
 	html = html.replace(/\*(.*?)\*/g, "<i>$1</i>");
 
 	// Headers (must match longer patterns first)
-	html = html.replace(/^######\s+(.*)/gm, '<h6 style="color:#000000;font-size:13px;line-height:1.3;mso-line-height-rule:exactly;margin:10px 0 4px 0;">$1</h6>');
-	html = html.replace(/^#####\s+(.*)/gm, '<h5 style="color:#000000;font-size:15px;line-height:1.3;mso-line-height-rule:exactly;margin:12px 0 4px 0;">$1</h5>');
-	html = html.replace(/^####\s+(.*)/gm, '<h4 style="color:#000000;font-size:16px;line-height:1.3;mso-line-height-rule:exactly;margin:14px 0 6px 0;">$1</h4>');
-	html = html.replace(/^###\s+(.*)/gm, '<h3 style="color:#000000;font-size:18px;line-height:1.3;mso-line-height-rule:exactly;margin:16px 0 8px 0;">$1</h3>');
-	html = html.replace(/^##\s+(.*)/gm, '<h2 style="color:#000000;font-size:22px;font-weight:600;line-height:1.3;mso-line-height-rule:exactly;margin:20px 0 10px 0;padding-bottom:4px;border-bottom:1px solid #edf2f7;">$1</h2>');
-	html = html.replace(/^#\s+(.*)/gm, '<h1 style="color:#000000;font-size:26px;font-weight:700;line-height:1.3;mso-line-height-rule:exactly;margin:24px 0 12px 0;padding-bottom:8px;border-bottom:2px solid #edf2f7;">$1</h1>');
+	html = html.replace(
+		/^######\s+(.*)/gm,
+		'<h6 style="color:#000000;font-size:13px;line-height:1.3;mso-line-height-rule:exactly;margin:10px 0 4px 0;">$1</h6>',
+	);
+	html = html.replace(
+		/^#####\s+(.*)/gm,
+		'<h5 style="color:#000000;font-size:15px;line-height:1.3;mso-line-height-rule:exactly;margin:12px 0 4px 0;">$1</h5>',
+	);
+	html = html.replace(
+		/^####\s+(.*)/gm,
+		'<h4 style="color:#000000;font-size:16px;line-height:1.3;mso-line-height-rule:exactly;margin:14px 0 6px 0;">$1</h4>',
+	);
+	html = html.replace(
+		/^###\s+(.*)/gm,
+		'<h3 style="color:#000000;font-size:18px;line-height:1.3;mso-line-height-rule:exactly;margin:16px 0 8px 0;">$1</h3>',
+	);
+	html = html.replace(
+		/^##\s+(.*)/gm,
+		'<h2 style="color:#000000;font-size:22px;font-weight:600;line-height:1.3;mso-line-height-rule:exactly;margin:20px 0 10px 0;padding-bottom:4px;border-bottom:1px solid #edf2f7;">$1</h2>',
+	);
+	html = html.replace(
+		/^#\s+(.*)/gm,
+		'<h1 style="color:#000000;font-size:26px;font-weight:700;line-height:1.3;mso-line-height-rule:exactly;margin:24px 0 12px 0;padding-bottom:8px;border-bottom:2px solid #edf2f7;">$1</h1>',
+	);
 
 	// Lists (simplified)
-	html = html.replace(/^[*-]\s+(.*)/gm, '<li style="color:#000000;line-height:1.6;mso-line-height-rule:exactly;margin-bottom:4px;">$1</li>');
+	html = html.replace(
+		/^[*-]\s+(.*)/gm,
+		'<li style="color:#000000;line-height:1.6;mso-line-height-rule:exactly;margin-bottom:4px;">$1</li>',
+	);
 	// Wrap lists in <ul> (very basic logic)
-	html = html.replace(/((?:<li[^>]*>.*<\/li>\n?)+)/g, '<ul style="margin:8px 0;padding-left:24px;line-height:1.6;">$1</ul>');
+	html = html.replace(
+		/((?:<li[^>]*>.*<\/li>\n?)+)/g,
+		'<ul style="margin:8px 0;padding-left:24px;line-height:1.6;">$1</ul>',
+	);
 
 	// Links: [text](url)
-	html = html.replace(/\[([^\]]+)\]\(([^\)]+)\)/g, '<a href="$2" style="color:#0563C1;">$1</a>');
+	html = html.replace(
+		/\[([^\]]+)\]\(([^)]+)\)/g,
+		'<a href="$2" style="color:#0563C1;">$1</a>',
+	);
 
 	// Tables: convert markdown pipe tables to HTML
 	// Matches contiguous lines that all contain pipe characters,
@@ -400,13 +503,14 @@ function markdownToHtml(markdown: string): string {
 		if (lines.length < 2) return tableBlock;
 
 		// Second line must be a separator row
-		if (!/^\|[\s\-\|:]+$/.test(lines[1])) return tableBlock;
+		if (!/^\|[\s|:-]+$/.test(lines[1])) return tableBlock;
 
 		// Parse column alignments from separator row
 		const sepCells = lines[1].split("|").filter((c) => c.trim() !== "");
 		const alignments = sepCells.map((c) => {
 			const trimmed = c.trim();
-			if (trimmed.startsWith(":") && trimmed.endsWith(":")) return "center";
+			if (trimmed.startsWith(":") && trimmed.endsWith(":"))
+				return "center";
 			if (trimmed.endsWith(":")) return "right";
 			return "left";
 		});
@@ -420,7 +524,8 @@ function markdownToHtml(markdown: string): string {
 			"border-collapse:collapse;width:100%;margin:8px 0;font-size:14px;color:#000000;line-height:1.5;mso-line-height-rule:exactly;";
 		const thStyle =
 			"border:1px solid #d0d7de;padding:8px 13px;background-color:#f6f8fa;color:#000000;font-weight:600;white-space:nowrap;line-height:1.5;mso-line-height-rule:exactly;";
-		const tdStyle = "border:1px solid #d0d7de;padding:8px 13px;color:#000000;line-height:1.5;mso-line-height-rule:exactly;";
+		const tdStyle =
+			"border:1px solid #d0d7de;padding:8px 13px;color:#000000;line-height:1.5;mso-line-height-rule:exactly;";
 
 		let tableHtml = `<table style="${tableStyle}">`;
 
@@ -528,8 +633,18 @@ function CopyRichButton({ contents }: { contents: MessageContent[] }) {
 		// reliably populate the native HTML clipboard format for other apps.
 		const el = document.createElement("div");
 		el.setAttribute("contenteditable", "true");
-		el.style.cssText =
-			"position:fixed;left:-9999px;top:-9999px;opacity:0;pointer-events:none;white-space:pre-wrap;background-color:white;color:black;";
+		Object.assign(el.style, {
+			position: "fixed",
+			left: "-9999px",
+			top: "-9999px",
+			opacity: "0",
+			pointerEvents: "none",
+			whiteSpace: "pre-wrap",
+			backgroundColor: "white",
+			color: "black",
+		});
+		// Rich clipboard copy requires staging generated HTML in the DOM.
+		// eslint-disable-next-line @microsoft/sdl/no-inner-html
 		el.innerHTML = html;
 		document.body.appendChild(el);
 
@@ -539,6 +654,8 @@ function CopyRichButton({ contents }: { contents: MessageContent[] }) {
 		selection?.removeAllRanges();
 		selection?.addRange(range);
 
+		// Electron still exposes this as the reliable way to populate native HTML clipboard formats.
+		// eslint-disable-next-line @typescript-eslint/no-deprecated
 		const success = document.execCommand("copy");
 
 		selection?.removeAllRanges();
@@ -552,7 +669,12 @@ function CopyRichButton({ contents }: { contents: MessageContent[] }) {
 			const blobPlain = new Blob([text], { type: "text/plain" });
 			const blobHtml = new Blob([html], { type: "text/html" });
 			void navigator.clipboard
-				.write([new ClipboardItem({ "text/plain": blobPlain, "text/html": blobHtml })])
+				.write([
+					new ClipboardItem({
+						"text/plain": blobPlain,
+						"text/html": blobHtml,
+					}),
+				])
 				.then(() => {
 					setCopied(true);
 					setTimeout(() => setCopied(false), 2000);

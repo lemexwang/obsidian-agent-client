@@ -40,8 +40,8 @@ import { extractErrorMessage } from "../utils/error-utils";
 
 export interface UseAgentSessionReturn {
 	session: ChatSession;
-									isReady: boolean;
-						balance: string | null;
+	isReady: boolean;
+	balance: string | null;
 
 	// Session lifecycle
 	createSession: (
@@ -63,9 +63,9 @@ export interface UseAgentSessionReturn {
 		configOptions?: SessionConfigOption[],
 	) => Promise<void>;
 
-									refreshBalance: () => Promise<void>;
+	refreshBalance: () => Promise<void>;
 
-		// Config
+	// Config
 	setMode: (modeId: string) => Promise<void>;
 	setModel: (modelId: string) => Promise<void>;
 	setConfigOption: (configId: string, value: string) => Promise<void>;
@@ -105,8 +105,8 @@ export function useAgentSession(
 		),
 	);
 
-		const [balance, setBalance] = useState<string | null>(null);
-		const isReady = session.state === "ready";
+	const [balance, setBalance] = useState<string | null>(null);
+	const isReady = session.state === "ready";
 
 	// Ref for accessing latest session in callbacks without deps
 	const sessionRef = useRef(session);
@@ -170,22 +170,22 @@ export function useAgentSession(
 	// Session Lifecycle
 	// ============================================================
 
-									const refreshBalance = useCallback(async () => {
-			const s = sessionRef.current;
-			if (!s.sessionId) return;
+	const refreshBalance = useCallback(async () => {
+		const s = sessionRef.current;
+		if (!s.sessionId) return;
 
-			try {
-				const data = await agentClient.getBalance(s.sessionId);
-				// DeepSeek balance API typically returns { "balance": "1.23" } or similar
-				const balanceVal = data?.balance ?? "Unknown";
-				setBalance(balanceVal);
-			} catch (error) {
-				console.error("Failed to refresh balance:", error);
-				setBalance("Error");
-			}
-		}, [agentClient]);
+		try {
+			const data = await agentClient.getBalance(s.sessionId);
+			// DeepSeek balance API typically returns { "balance": "1.23" } or similar
+			const balanceVal = data.balance ?? "Unknown";
+			setBalance(balanceVal);
+		} catch (error) {
+			console.error("Failed to refresh balance:", error);
+			setBalance("Error");
+		}
+	}, [agentClient]);
 
-		const createSession = useCallback(
+	const createSession = useCallback(
 		async (overrideAgentId?: string, overrideCwd?: string) => {
 			const effectiveCwd = overrideCwd || workingDirectory;
 			const settings = settingsAccess.getSnapshot();
@@ -262,9 +262,9 @@ export function useAgentSession(
 					lastActivityAt: new Date(),
 				}));
 
-																								void refreshBalance();
+				void refreshBalance();
 
-					// Restore last used config (model/mode)
+				// Restore last used config (model/mode)
 				if (sessionResult.configOptions && sessionResult.sessionId) {
 					let configOptions = sessionResult.configOptions;
 					configOptions = await tryRestoreConfigOption(
@@ -549,16 +549,16 @@ export function useAgentSession(
 
 	return {
 		session,
-								isReady,
-			balance,
+		isReady,
+		balance,
 		createSession,
 		restartSession,
 		closeSession,
 		forceRestartAgent,
 		cancelOperation,
 		getAvailableAgents,
-					updateSessionFromLoad,
-			refreshBalance,
+		updateSessionFromLoad,
+		refreshBalance,
 		setMode,
 		setModel,
 		setConfigOption,

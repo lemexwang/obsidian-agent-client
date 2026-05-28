@@ -56,6 +56,23 @@ export interface TerminalOutputResult {
 	} | null;
 }
 
+export interface AgentBalanceResult {
+	balance?: string;
+	error?: string;
+	[key: string]: unknown;
+}
+
+interface CustomRequestConnection {
+	sendRequest(
+		method: "session/get_balance",
+		params: { sessionId: string },
+	): Promise<unknown>;
+}
+
+function isAgentBalanceResult(value: unknown): value is AgentBalanceResult {
+	return value !== null && typeof value === "object";
+}
+
 /**
  * ACP client for agent communication and process lifecycle management.
  */
@@ -322,7 +339,10 @@ export class AcpClient {
 				return new Promise<void>((resolve, reject) => {
 					stdin.write(chunk, (error) => {
 						if (error) {
-							this.logger.error("[AcpClient] stdin.write error:", error);
+							this.logger.error(
+								"[AcpClient] stdin.write error:",
+								error,
+							);
 							reject(error);
 						}
 					});
@@ -568,27 +588,31 @@ export class AcpClient {
 	/**
 	 * Disconnect from the agent and clean up resources.
 	 */
-			/**
-		 * Get the current API balance from the agent.
-		 * Only supported by specific agents (e.g., DeepSeek ACP).
-		 */
-		async getBalance(sessionId: string): Promise<any> {
-			const connection = this.requireConnection();
+	/**
+	 * Get the current API balance from the agent.
+	 * Only supported by specific agents (e.g., DeepSeek ACP).
+	 */
+	async getBalance(sessionId: string): Promise<AgentBalanceResult> {
+		const connection =
+			this.requireConnection() as unknown as CustomRequestConnection;
 
-			try {
-				this.logger.log(`[AcpClient] Fetching balance for session: ${sessionId}...`);
-				const response = await (connection as any).sendRequest("session/get_balance", {
-					sessionId,
-				});
-				this.logger.log(`[AcpClient] Balance received:`, response);
-				return response;
-			} catch (error) {
-				this.logger.error("[AcpClient] Get Balance Error:", error);
-				throw error;
-			}
+		try {
+			this.logger.log(
+				`[AcpClient] Fetching balance for session: ${sessionId}...`,
+			);
+			const response = await connection.sendRequest(
+				"session/get_balance",
+				{ sessionId },
+			);
+			this.logger.log(`[AcpClient] Balance received:`, response);
+			return isAgentBalanceResult(response) ? response : {};
+		} catch (error) {
+			this.logger.error("[AcpClient] Get Balance Error:", error);
+			throw error;
 		}
+	}
 
-		disconnect(): Promise<void> {
+	disconnect(): Promise<void> {
 		this.logger.log("[AcpClient] Disconnecting...");
 
 		// Cancel all pending operations
