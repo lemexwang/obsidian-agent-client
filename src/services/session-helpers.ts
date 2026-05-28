@@ -123,7 +123,7 @@ export function buildAgentConfigWithApiKey(
 ) {
 	const baseConfig = toAgentConfig(agentSettings, workingDirectory);
 
-	// Add API keys to environment for Claude and Gemini
+	// Add API keys to environment for built-in agents only when explicitly set.
 	if (agentId === settings.claude.id) {
 		const claudeSettings = agentSettings as ClaudeAgentSettings;
 		const apiKey = claudeSettings.apiKey.trim();

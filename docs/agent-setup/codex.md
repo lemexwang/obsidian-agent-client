@@ -67,6 +67,31 @@ Follow the prompts to authenticate with your OpenAI account.
 The ChatGPT app and Codex app use a different authentication system. Having ChatGPT running does **not** authenticate the plugin — you must log in via the CLI.
 :::
 
+::: warning Important
+If you use account login, make sure `OPENAI_API_KEY` is not set in the Codex
+agent's environment variables. A globally exported `OPENAI_API_KEY` can also
+take precedence over the Codex CLI login session, which may cause unexpected
+401 or billing behavior.
+:::
+
+## Recommended Settings
+
+For account login:
+
+```json
+"codex": {
+  "id": "codex",
+  "displayName": "Codex",
+  "apiKey": "",
+  "command": "codex-acp",
+  "args": [],
+  "env": []
+}
+```
+
+For API-key billing, put the key in the **API key** field instead of duplicating
+`OPENAI_API_KEY` in environment variables.
+
 ## Verify Setup
 
 1. Click the robot icon in the ribbon or use the command palette: **"Open chat view"**

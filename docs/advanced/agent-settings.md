@@ -18,6 +18,22 @@ For Claude subscription login, keep `apiKey` empty and log in with the
 Claude Code CLI (`claude`) in a terminal. Do not set `ANTHROPIC_API_KEY` for
 the built-in Claude agent unless you intentionally want API-key billing.
 
+## Codex
+```json
+"codex": {
+  "id": "codex",
+  "displayName": "Codex",
+  "apiKey": "",
+  "command": "codex-acp",
+  "args": [],
+  "env": []
+}
+```
+
+For Codex account login, keep `apiKey` empty and log in with the Codex CLI
+(`codex`) in a terminal. Do not set `OPENAI_API_KEY` in `env` unless you
+intentionally want API-key billing.
+
 ## Gemini CLI
 ```json
 "gemini": {

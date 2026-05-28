@@ -47,6 +47,11 @@ The agent requires authentication before processing requests.
 
 **For Codex:**
 - Set your OpenAI API key in **Settings → Agent Client → Codex → API key**
+- Or run `codex` in Terminal first to authenticate with your OpenAI account,
+  then leave the plugin's Codex API key empty
+- If account login fails with authentication errors, check that `OPENAI_API_KEY`
+  is not set in the Codex agent's environment variables or inherited shell
+  environment
 
 **For Gemini CLI:**
 - Set your Google API key in **Settings → Agent Client → Gemini CLI → API key**
