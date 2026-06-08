@@ -33,7 +33,6 @@ import {
 	tryRestoreConfigOption,
 	restoreLegacyConfig,
 } from "../services/session-state";
-import { extractErrorMessage } from "../utils/error-utils";
 
 // ============================================================================
 // Types
