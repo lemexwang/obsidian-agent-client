@@ -18,6 +18,7 @@ import type {
 import type { AcpClient } from "../acp/acp-client";
 import type { ISettingsAccess } from "../services/settings-service";
 import type { ErrorInfo } from "../types/errors";
+import { extractErrorMessage } from "../utils/error-utils";
 import {
 	type AgentDisplayInfo,
 	getDefaultAgentId,
