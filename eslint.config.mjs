@@ -20,6 +20,7 @@ export default defineConfig([
 			"@typescript-eslint/no-unused-vars": ["error", { args: "none" }],
 			"@typescript-eslint/ban-ts-comment": "off",
 			"@typescript-eslint/no-empty-function": "off",
+			"obsidianmd/ui/sentence-case": "off",
 		},
 	},
 ]);

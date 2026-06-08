@@ -133,9 +133,6 @@ export function useAgentMessages(
 		flushScheduledRef.current = false;
 		const updates = pendingUpdatesRef.current;
 		if (updates.length === 0) return;
-		const ts = performance.now();
-		const types = updates.map((u) => u.type).join(",");
-		console.log(`[DEBUG:flushPending] RAF fired @ ${ts.toFixed(0)}, ${updates.length} updates: [${types}]`);
 		pendingUpdatesRef.current = [];
 
 		setMessages((prev) => {
@@ -154,11 +151,8 @@ export function useAgentMessages(
 	const enqueueUpdate = useCallback(
 		(update: SessionUpdate) => {
 			if (ignoreUpdatesRef.current) {
-				console.log("[DEBUG:enqueueUpdate] IGNORED (ignoreUpdates=true)", update.type);
 				return;
 			}
-			const ts = performance.now();
-			console.log(`[DEBUG:enqueueUpdate] + ${update.type} @ ${ts.toFixed(0)}`, update.type === "tool_call" || update.type === "tool_call_update" ? (update as any).toolCallId : "");
 			pendingUpdatesRef.current.push(update);
 			if (!flushScheduledRef.current) {
 				flushScheduledRef.current = true;
@@ -262,7 +256,11 @@ export function useAgentMessages(
 			// Wait for any in-flight send to settle (e.g. after cancel/stop)
 			// before starting a new one to avoid interleaved state updates.
 			if (sendPromiseRef.current) {
-				try { await sendPromiseRef.current; } catch { /* ignore */ }
+				try {
+					await sendPromiseRef.current;
+				} catch {
+					/* ignore */
+				}
 			}
 
 			const currentSessionId = session.sessionId;
@@ -335,7 +333,6 @@ export function useAgentMessages(
 
 			setIsSending(true);
 			setLastUserMessage(content);
-			console.log("[DEBUG:sendMessage] prompt sent, awaiting agent...");
 
 			const sendPromise = (async () => {
 				try {
@@ -351,7 +348,6 @@ export function useAgentMessages(
 
 					// Discard results if a newer send has started
 					if (generationRef.current !== generation) return;
-
 
 					if (result.success) {
 						setIsSending(false);

@@ -499,6 +499,8 @@ export class AgentClientSettingTab extends PluginSettingTab {
 
 		this.renderClaudeSettings(containerEl);
 
+		this.renderCodexSettings(containerEl);
+
 		this.renderGeminiSettings(containerEl);
 
 		new Setting(containerEl).setName("Custom agents").setHeading();
@@ -773,7 +775,11 @@ export class AgentClientSettingTab extends PluginSettingTab {
 				this.plugin.settings.claude.displayName ||
 					this.plugin.settings.claude.id,
 			),
-
+			toOption(
+				this.plugin.settings.codex.id,
+				this.plugin.settings.codex.displayName ||
+					this.plugin.settings.codex.id,
+			),
 			toOption(
 				this.plugin.settings.gemini.id,
 				this.plugin.settings.gemini.displayName ||
@@ -959,7 +965,7 @@ export class AgentClientSettingTab extends PluginSettingTab {
 		new Setting(sectionEl)
 			.setName("API key")
 			.setDesc(
-				"OpenAI API key. Required if not logging in with an OpenAI account. (Stored as plain text)",
+				"OpenAI API key. Leave empty when using Codex CLI account login. (Stored as plain text)",
 			)
 			.addText((text) => {
 				text.setPlaceholder("Enter your OpenAI API key")
@@ -1012,7 +1018,7 @@ export class AgentClientSettingTab extends PluginSettingTab {
 		new Setting(sectionEl)
 			.setName("Environment variables")
 			.setDesc(
-				"Enter KEY=VALUE pairs, one per line. OPENAI_API_KEY is derived from the field above.",
+				"Enter KEY=VALUE pairs, one per line. Do not set OPENAI_API_KEY here when using Codex CLI account login.",
 			)
 			.addTextArea((text) => {
 				text.setPlaceholder("")

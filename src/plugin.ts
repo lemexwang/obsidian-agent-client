@@ -1,9 +1,4 @@
-import {
-	Plugin,
-	WorkspaceLeaf,
-	Notice,
-	requestUrl,
-} from "obsidian";
+import { Plugin, WorkspaceLeaf, Notice, requestUrl } from "obsidian";
 import * as semver from "semver";
 import { ChatView, VIEW_TYPE_CHAT } from "./ui/ChatView";
 import {
@@ -37,7 +32,6 @@ import {
 	GeminiAgentSettings,
 	ClaudeAgentSettings,
 	CodexAgentSettings,
-
 	CustomAgentSettings,
 } from "./types/agent";
 import type { SavedSessionInfo } from "./types/session";
@@ -626,6 +620,11 @@ export default class AgentClientPlugin extends Plugin {
 					this.settings.claude.displayName || this.settings.claude.id,
 			},
 			{
+				id: this.settings.codex.id,
+				displayName:
+					this.settings.codex.displayName || this.settings.codex.id,
+			},
+			{
 				id: this.settings.gemini.id,
 				displayName:
 					this.settings.gemini.displayName || this.settings.gemini.id,
@@ -859,13 +858,16 @@ export default class AgentClientPlugin extends Plugin {
 				? rawDefaultId
 				: availableAgentIds[0] || D.claude.id;
 
-				this.settings = {
+		this.settings = {
 			codex: {
 				id: D.codex.id,
 				displayName: str(rcdx.displayName, D.codex.displayName),
 				apiKey: str(rcdx.apiKey, D.codex.apiKey),
 				command: str(rcdx.command, "") || D.codex.command,
-				args: sanitizeArgs(rcdx.args).length > 0 ? sanitizeArgs(rcdx.args) : D.codex.args,
+				args:
+					sanitizeArgs(rcdx.args).length > 0
+						? sanitizeArgs(rcdx.args)
+						: D.codex.args,
 				env: normalizeEnvVars(rcdx.env),
 			},
 			claude: {
@@ -1114,7 +1116,7 @@ export default class AgentClientPlugin extends Plugin {
 	private collectAvailableAgentIds(): string[] {
 		const ids = new Set<string>();
 		ids.add(this.settings.claude.id);
-
+		ids.add(this.settings.codex.id);
 		ids.add(this.settings.gemini.id);
 		for (const agent of this.settings.customAgents) {
 			if (agent.id && agent.id.length > 0) {
